@@ -1,0 +1,54 @@
+{
+  "name": "resume-tailor-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "electron:dev": "concurrently -k -n NEXT,ELECTRON -c cyan,yellow \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:start": "next build && electron .",
+    "electron:pack": "next build && electron-builder --win"
+  },
+  "dependencies": {
+    "next": "14.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0",
+    "wait-on": "^8.0.0"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "build": {
+    "appId": "com.resume.tailor",
+    "productName": "Super",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      ".next/**/*",
+      "!.next/cache/**/*",
+      "public/**/*",
+      "next.config.js",
+      "package.json"
+    ],
+    "asarUnpack": [
+      ".next/**/*",
+      "node_modules/next/**/*",
+      "node_modules/@next/**/*",
+      "public/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    }
+  }
+}

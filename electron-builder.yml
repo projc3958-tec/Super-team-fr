@@ -1,0 +1,26 @@
+appId: com.resumetailor.app
+productName: Resume Tailor
+copyright: Resume Tailor
+
+files:
+  - electron/**/*
+  - .next/**/*
+  - pages/**/*
+  - next.config.js
+  - package.json
+  - node_modules/**/*
+
+asar: false
+
+win:
+  target:
+    - target: nsis
+      arch: x64
+    - target: portable
+      arch: x64
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Resume Tailor

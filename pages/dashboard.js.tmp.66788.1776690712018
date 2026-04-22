@@ -1,0 +1,248 @@
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+function BarChart({ data }) {
+  const max = Math.max(...data.map(d => d.count), 1);
+  const colors = [
+    'linear-gradient(90deg,#22d3ee,#10b981)',
+    'linear-gradient(90deg,#818cf8,#6366f1)',
+    'linear-gradient(90deg,#fb923c,#f59e0b)',
+    'linear-gradient(90deg,#f472b6,#ec4899)',
+    'linear-gradient(90deg,#34d399,#059669)',
+  ];
+
+  if (!data.length) {
+    return <p style={{ color: '#475569', fontSize: '14px', textAlign: 'center', padding: '32px 0' }}>No data yet. Generate some resumes to see stats here.</p>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+      {data.map((item, i) => {
+        const pct = Math.max((item.count / max) * 100, item.count > 0 ? 2 : 0);
+        return (
+          <div key={item.profile} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{ width: '110px', textAlign: 'right', flexShrink: 0 }}>
+              <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '500' }}>{item.profileName}</span>
+            </div>
+            <div style={{ flex: 1, height: '34px', background: 'rgba(30,41,59,0.5)', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
+              <div style={{
+                width: `${pct}%`,
+                height: '100%',
+                background: colors[i % colors.length],
+                borderRadius: '8px',
+                transition: 'width 0.8s cubic-bezier(0.4,0,0.2,1)',
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: '10px',
+                minWidth: item.count > 0 ? '34px' : '0',
+              }}>
+                {pct > 15 && <span style={{ fontSize: '12px', fontWeight: '700', color: '#0a0f1c' }}>{item.count}</span>}
+              </div>
+              {pct <= 15 && item.count > 0 && (
+                <span style={{ position: 'absolute', left: `${pct + 1}%`, top: '50%', transform: 'translateY(-50%)', fontSize: '12px', fontWeight: '700', color: '#94a3b8' }}>{item.count}</span>
+              )}
+            </div>
+            <div style={{ width: '60px', flexShrink: 0 }}>
+              <span style={{ fontSize: '12px', color: '#64748b' }}>
+                {item.lastGenerated ? new Date(item.lastGenerated).toLocaleDateString() : '—'}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub, color = '#f1f5f9', icon }) {
+  return (
+    <div style={{
+      background: 'rgba(17,24,39,0.8)',
+      border: '1px solid rgba(255,255,255,0.07)',
+      borderRadius: '16px',
+      padding: '22px 24px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+        <span style={{ fontSize: '20px' }}>{icon}</span>
+        <span style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</span>
+      </div>
+      <div style={{ fontSize: '36px', fontWeight: '700', color, lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: '12px', color: '#475569', marginTop: '6px' }}>{sub}</div>}
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetch(`${API}/api/stats`)
+      .then(r => { if (!r.ok) throw new Error('Failed to load stats'); return r.json(); })
+      .then(data => { setStats(data); setLoading(false); })
+      .catch(err => { setError(err.message); setLoading(false); });
+  }, []);
+
+  const topProfile = stats?.byProfile?.[0];
+
+  return (
+    <>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'DM Sans', -apple-system, sans-serif; background: #0a0f1c; color: #f1f5f9; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a1f2e; }
+        ::-webkit-scrollbar-thumb { background: #3b4563; border-radius: 4px; }
+      `}</style>
+
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg,#0a0f1c 0%,#111827 60%,#0f172a 100%)' }}>
+
+        {/* Top nav */}
+        <nav style={{
+          padding: '0 32px',
+          height: '60px',
+          background: 'rgba(17,24,39,0.9)',
+          backdropFilter: 'blur(12px)',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '32px', height: '32px', background: 'linear-gradient(135deg,#22d3ee,#10b981)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px' }}>⚡</div>
+            <span style={{ fontWeight: '700', fontSize: '16px', color: '#f1f5f9' }}>Resume Tailor</span>
+            <span style={{ color: '#334155', fontSize: '16px', margin: '0 4px' }}>/</span>
+            <span style={{ fontWeight: '600', fontSize: '14px', color: '#22d3ee' }}>Dashboard</span>
+          </div>
+          <Link href="/" style={{
+            padding: '8px 16px',
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#94a3b8',
+            background: 'rgba(30,41,59,0.6)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: '8px',
+            textDecoration: 'none',
+            transition: 'all 0.2s',
+          }}>
+            ← Back to App
+          </Link>
+        </nav>
+
+        <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '36px 24px' }}>
+
+          {/* Page title */}
+          <div style={{ marginBottom: '28px' }}>
+            <h1 style={{ fontSize: '26px', fontWeight: '700', color: '#f1f5f9' }}>Generation Dashboard</h1>
+            <p style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Track how many resumes each profile has generated.</p>
+          </div>
+
+          {loading && (
+            <div style={{ textAlign: 'center', padding: '80px 0', color: '#64748b' }}>
+              <div style={{ fontSize: '14px' }}>Loading stats...</div>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ padding: '16px 20px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '12px', color: '#ef4444', fontSize: '14px', marginBottom: '24px' }}>
+              {error} — Make sure the backend is running at <code style={{ fontFamily: 'monospace', fontSize: '12px' }}>{API}</code>
+            </div>
+          )}
+
+          {stats && (
+            <>
+              {/* Stat cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '16px', marginBottom: '28px' }}>
+                <StatCard icon="📄" label="Total Generated" value={stats.totalGenerated} sub="all time" color="#f1f5f9" />
+                <StatCard icon="⚡" label="This Week"       value={stats.thisWeek}       sub="last 7 days" color="#22d3ee" />
+                <StatCard icon="👤" label="Active Profiles" value={stats.byProfile.length} sub={topProfile ? `Top: ${topProfile.profileName} (${topProfile.count})` : 'no data'} color="#10b981" />
+              </div>
+
+              {/* Bar chart */}
+              <div style={{
+                background: 'rgba(17,24,39,0.8)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '16px',
+                padding: '24px 28px',
+                marginBottom: '24px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '22px' }}>
+                  <div>
+                    <h2 style={{ fontSize: '16px', fontWeight: '600', color: '#f1f5f9' }}>Resumes by Profile</h2>
+                    <p style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>Total PDFs generated per user profile</p>
+                  </div>
+                  <button
+                    onClick={() => { setLoading(true); fetch(`${API}/api/stats`).then(r => r.json()).then(d => { setStats(d); setLoading(false); }); }}
+                    style={{ padding: '7px 14px', fontSize: '12px', fontWeight: '600', background: 'rgba(30,41,59,0.7)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', color: '#94a3b8', cursor: 'pointer' }}
+                  >
+                    ⟳ Refresh
+                  </button>
+                </div>
+
+                {/* Legend row */}
+                {stats.byProfile.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '18px', paddingLeft: '124px' }}>
+                    <span style={{ fontSize: '11px', color: '#475569', flex: 1 }}>Count →</span>
+                    <span style={{ fontSize: '11px', color: '#475569', width: '60px' }}>Last run</span>
+                  </div>
+                )}
+
+                <BarChart data={stats.byProfile} />
+              </div>
+
+              {/* Recent generations */}
+              <div style={{
+                background: 'rgba(17,24,39,0.8)',
+                border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '16px',
+                overflow: 'hidden',
+              }}>
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                  <h2 style={{ fontSize: '16px', fontWeight: '600', color: '#f1f5f9' }}>Recent Generations</h2>
+                  <p style={{ fontSize: '12px', color: '#64748b', marginTop: '3px' }}>Last {stats.recentGenerations.length} resumes generated</p>
+                </div>
+
+                {stats.recentGenerations.length === 0 ? (
+                  <div style={{ padding: '48px 24px', textAlign: 'center', color: '#475569', fontSize: '14px' }}>
+                    No generations recorded yet.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(15,23,42,0.5)' }}>
+                          {['Profile', 'Company', 'Job Title', 'Template', 'Date'].map(h => (
+                            <th key={h} style={{ padding: '10px 16px', fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.recentGenerations.map((g, i) => (
+                          <tr key={i} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ padding: '11px 16px', fontSize: '13px', color: '#e2e8f0', fontWeight: '500' }}>{g.profileName || g.profile}</td>
+                            <td style={{ padding: '11px 16px', fontSize: '13px', color: '#94a3b8' }}>{g.company || '—'}</td>
+                            <td style={{ padding: '11px 16px', fontSize: '13px', color: '#94a3b8' }}>{g.jobTitle || '—'}</td>
+                            <td style={{ padding: '11px 16px', fontSize: '12px', color: '#64748b', fontFamily: 'monospace' }}>
+                              {g.template ? g.template.replace('Resume-', '').replace(/-/g, ' ') : '—'}
+                            </td>
+                            <td style={{ padding: '11px 16px', fontSize: '12px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                              {new Date(g.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}

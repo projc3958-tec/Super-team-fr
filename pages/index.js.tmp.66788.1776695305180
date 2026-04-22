@@ -1,0 +1,333 @@
+import { useState, useEffect } from "react";
+import Link from "next/link";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+async function getDeviceId() {
+  if (typeof window === "undefined") return null;
+  if (window.electronAPI) return window.electronAPI.getDeviceId();
+  let id = localStorage.getItem("_device_id");
+  if (!id) { id = crypto.randomUUID(); localStorage.setItem("_device_id", id); }
+  return id;
+}
+
+const Logo = () => (
+  <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="38" height="38" rx="11" fill="url(#lg)"/>
+    <path d="M21.5 6L12 21h7l-2.5 11 10-15h-7L21.5 6z" fill="white" fillOpacity="0.95"/>
+    <defs>
+      <linearGradient id="lg" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#8b5cf6"/>
+        <stop offset="1" stopColor="#db2777"/>
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+function NavLink({ icon, label, href, active }) {
+  return (
+    <Link href={href} style={{
+      display: "flex", alignItems: "center", gap: "10px",
+      padding: "9px 12px", borderRadius: "9px", textDecoration: "none",
+      fontSize: "13.5px", fontWeight: active ? "600" : "500",
+      color: active ? "#e2d9ff" : "#6b7280",
+      background: active ? "rgba(139,92,246,0.18)" : "transparent",
+      border: `1px solid ${active ? "rgba(139,92,246,0.25)" : "transparent"}`,
+      transition: "all 0.15s",
+    }}>
+      <span style={{ fontSize: "15px", opacity: active ? 1 : 0.7 }}>{icon}</span>
+      {label}
+    </Link>
+  );
+}
+
+function FieldLabel({ children, hint }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
+      <label style={{ fontSize: "11px", fontWeight: "700", color: "#7c6fcd", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+        {children}
+      </label>
+      {hint && <span style={{ fontSize: "11px", color: "#4a5568" }}>{hint}</span>}
+    </div>
+  );
+}
+
+const fieldBase = {
+  width: "100%", padding: "10px 13px", fontSize: "13.5px",
+  background: "rgba(12,10,30,0.7)", border: "1px solid rgba(139,92,246,0.18)",
+  borderRadius: "9px", outline: "none", color: "#e2e8f0",
+  transition: "border-color 0.2s, box-shadow 0.2s", fontFamily: "inherit",
+};
+
+export default function Home() {
+  const [profiles, setProfiles]               = useState([]);
+  const [templates, setTemplates]             = useState([]);
+  const [selectedProfile, setSelectedProfile] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState("Resume");
+  const [jd, setJd]                           = useState("");
+  const [jobTitle, setJobTitle]               = useState("");
+  const [companyName, setCompanyName]         = useState("");
+  const [loading, setLoading]                 = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/profiles`).then(r => r.json()).then(setProfiles).catch(console.error);
+    fetch(`${API}/api/templates`).then(r => r.json()).then(setTemplates).catch(console.error);
+  }, []);
+
+  const generatePDF = async () => {
+    if (loading) return;
+    if (!selectedProfile)    return alert("Please select a profile");
+    if (!jd.trim())          return alert("Please paste a job description");
+    if (!jobTitle.trim())    return alert("Please enter the job title");
+    if (!companyName.trim()) return alert("Please enter the company name");
+
+    setLoading(true);
+    try {
+      const deviceId = await getDeviceId();
+      const res = await fetch(`${API}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile: selectedProfile, jd, template: selectedTemplate, jobTitle, companyName, deviceId }),
+      });
+      if (!res.ok) throw new Error(await res.text() || "Generation failed");
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      const san  = s => s ? s.replace(/\s+/g, "").replace(/[^A-Za-z0-9]/g, "") : "";
+      const prof = profiles.find(p => p.id === selectedProfile);
+      a.download = `${san(prof?.name || "resume")}_${san(companyName)}_${san(jobTitle)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`❌ ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <style jsx global>{`
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html, body { height:100%; overflow:hidden; }
+        body { font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; background:#0c0a1e; color:#f1f5f9; }
+        input,select,textarea,button { font-family:inherit; }
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(139,92,246,0.35); border-radius:6px; }
+        select option { background:#1c1733; color:#e2e8f0; }
+        .field:focus { border-color:rgba(139,92,246,0.55)!important; box-shadow:0 0 0 3px rgba(139,92,246,0.12)!important; }
+        .nav-link:hover { background:rgba(139,92,246,0.1)!important; color:#c4b5fd!important; }
+      `}</style>
+
+      <div style={{ display:"flex", height:"100vh", background:"#0c0a1e" }}>
+
+        {/* ──────────── SIDEBAR ──────────── */}
+        <aside style={{
+          width:"220px", flexShrink:0,
+          background:"#08061a",
+          borderRight:"1px solid rgba(139,92,246,0.1)",
+          display:"flex", flexDirection:"column",
+          padding:"22px 14px",
+        }}>
+          {/* Branding */}
+          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"32px", paddingLeft:"2px" }}>
+            <Logo />
+            <div>
+              <div style={{ fontSize:"15px", fontWeight:"700", color:"#f1f5f9", letterSpacing:"-0.2px" }}>Super Team</div>
+              <div style={{ fontSize:"9.5px", fontWeight:"600", color:"#7c3aed", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"1px" }}>Resume Studio</div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
+            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>
+              Workspace
+            </div>
+            <NavLink icon="⚡" label="Generate"  href="/"          active={true}  />
+            <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
+
+            <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
+            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>
+              Account
+            </div>
+            <NavLink icon="🔑" label="License"  href="/license"   active={false} />
+          </div>
+
+          {/* Footer */}
+          <div style={{ paddingLeft:"2px" }}>
+            <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"4px" }}>
+              <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#10b981", boxShadow:"0 0 5px #10b981" }} />
+              <span style={{ fontSize:"11px", color:"#6b7280" }}>Backend online</span>
+            </div>
+            <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
+          </div>
+        </aside>
+
+        {/* ──────────── MAIN ──────────── */}
+        <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
+
+          {/* Top bar */}
+          <header style={{
+            padding:"0 28px", height:"56px", flexShrink:0,
+            background:"rgba(8,6,26,0.6)", backdropFilter:"blur(12px)",
+            borderBottom:"1px solid rgba(139,92,246,0.08)",
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+          }}>
+            <div>
+              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9" }}>Generate Tailored Resume</h1>
+              <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"1px" }}>AI-powered · ATS-optimized · PDF output</p>
+            </div>
+            <div style={{ display:"flex", gap:"8px" }}>
+              {[
+                { v:`${templates.length}`, l:"Templates" },
+                { v:`${profiles.length}`, l:"Profiles" },
+              ].map(({ v, l }) => (
+                <div key={l} style={{ padding:"5px 12px", background:"rgba(139,92,246,0.08)", border:"1px solid rgba(139,92,246,0.15)", borderRadius:"8px", textAlign:"center" }}>
+                  <div style={{ fontSize:"14px", fontWeight:"700", color:"#a78bfa" }}>{v}</div>
+                  <div style={{ fontSize:"10px", color:"#6b7280" }}>{l}</div>
+                </div>
+              ))}
+            </div>
+          </header>
+
+          {/* Two-column workspace */}
+          <div style={{ flex:1, overflow:"hidden", display:"flex", gap:"0" }}>
+
+            {/* Left panel — controls */}
+            <div style={{
+              width:"340px", flexShrink:0,
+              borderRight:"1px solid rgba(139,92,246,0.08)",
+              padding:"22px 20px",
+              overflowY:"auto",
+              display:"flex", flexDirection:"column", gap:"16px",
+            }}>
+
+              {/* Profile */}
+              <div>
+                <FieldLabel>Profile</FieldLabel>
+                <select className="field" value={selectedProfile} onChange={e => setSelectedProfile(e.target.value)} style={{ ...fieldBase, color: selectedProfile ? "#e2e8f0" : "#6b7280" }}>
+                  <option value="">Choose a profile…</option>
+                  {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+
+              {/* Template */}
+              <div>
+                <FieldLabel>Template</FieldLabel>
+                <select className="field" value={selectedTemplate} onChange={e => setSelectedTemplate(e.target.value)} style={fieldBase}>
+                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+
+              {/* Job Title */}
+              <div>
+                <FieldLabel>Job Title</FieldLabel>
+                <input className="field" type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)}
+                  placeholder="e.g. Senior Software Engineer" style={fieldBase} />
+              </div>
+
+              {/* Company */}
+              <div>
+                <FieldLabel>Company</FieldLabel>
+                <input className="field" type="text" value={companyName} onChange={e => setCompanyName(e.target.value)}
+                  placeholder="e.g. Google" style={fieldBase} />
+              </div>
+
+              {/* Stats grid */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px", marginTop:"4px" }}>
+                {[
+                  { icon:"🎯", label:"ATS Score",  val:"95-100%" },
+                  { icon:"🤖", label:"AI Model",   val:"GPT-4o-mini" },
+                  { icon:"📄", label:"Templates",  val:`${templates.length} styles` },
+                  { icon:"⚡", label:"Avg. Speed", val:"~60s" },
+                ].map(({ icon, label, val }) => (
+                  <div key={label} style={{
+                    background:"rgba(139,92,246,0.05)", border:"1px solid rgba(139,92,246,0.1)",
+                    borderRadius:"9px", padding:"10px 12px",
+                  }}>
+                    <div style={{ fontSize:"15px", marginBottom:"3px" }}>{icon}</div>
+                    <div style={{ fontSize:"10px", color:"#6b7280" }}>{label}</div>
+                    <div style={{ fontSize:"12px", fontWeight:"600", color:"#c4b5fd", marginTop:"1px" }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right panel — JD + generate */}
+            <div style={{
+              flex:1, padding:"22px 24px",
+              display:"flex", flexDirection:"column", gap:"14px",
+              overflow:"hidden", minWidth:0,
+            }}>
+              <div style={{ flex:1, display:"flex", flexDirection:"column" }}>
+                <FieldLabel hint="Paste the complete job posting — the AI extracts every keyword">
+                  Job Description
+                </FieldLabel>
+                <textarea
+                  className="field"
+                  value={jd}
+                  onChange={e => setJd(e.target.value)}
+                  placeholder={"Paste the full job description here...\n\nTip: Include the entire posting — requirements, responsibilities, tech stack. The more context, the better the match."}
+                  style={{
+                    ...fieldBase,
+                    flex:1, resize:"none",
+                    lineHeight:"1.65", fontSize:"13px",
+                    fontFamily:"'JetBrains Mono','Courier New',monospace",
+                    padding:"14px",
+                  }}
+                />
+              </div>
+
+              {/* Generate button */}
+              <button
+                onClick={generatePDF}
+                disabled={loading}
+                style={{
+                  width:"100%", padding:"15px 24px",
+                  fontSize:"15px", fontWeight:"700", letterSpacing:"-0.2px",
+                  color: loading ? "#7c3aed" : "#fff",
+                  background: loading
+                    ? "rgba(109,40,217,0.1)"
+                    : "linear-gradient(135deg, #7c3aed 0%, #9333ea 40%, #db2777 100%)",
+                  border: loading ? "1px solid rgba(109,40,217,0.25)" : "none",
+                  borderRadius:"12px",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  display:"flex", alignItems:"center", justifyContent:"center", gap:"10px",
+                  boxShadow: loading ? "none" : "0 4px 28px rgba(139,92,246,0.4)",
+                  transition:"all 0.25s",
+                  flexShrink:0,
+                }}
+              >
+                {loading ? (
+                  <>
+                    <span style={{ width:"17px", height:"17px", border:"2.5px solid transparent", borderTopColor:"#7c3aed", borderRadius:"50%", animation:"spin 0.75s linear infinite", display:"inline-block" }} />
+                    Generating resume…
+                  </>
+                ) : (
+                  <>
+                    <span style={{ fontSize:"17px" }}>⚡</span>
+                    Generate Tailored Resume
+                  </>
+                )}
+              </button>
+
+              {/* Tip */}
+              <p style={{ fontSize:"11px", color:"#374151", textAlign:"center", marginTop:"-4px" }}>
+                PDF downloads automatically · Generation takes ~60 seconds
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes spin { to { transform:rotate(360deg); } }
+      `}</style>
+    </>
+  );
+}
