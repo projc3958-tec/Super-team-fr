@@ -1,15 +1,6 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
-async function getDeviceId() {
-  if (typeof window === "undefined") return null;
-  if (window.electronAPI) return window.electronAPI.getDeviceId();
-  let id = localStorage.getItem("_device_id");
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem("_device_id", id); }
-  return id;
-}
+import { API, apiGet, apiFetch, getUser, isAdmin, logout } from "../lib/api";
 
 const Logo = () => (
   <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -536,10 +527,7 @@ export default function Home() {
   const styleCount = STYLE_DIMENSION_META.reduce((n, { key }) => n + (style[key] ? 1 : 0), 0);
 
   useEffect(() => {
-    getDeviceId().then(id => {
-      fetch(`${API}/api/profiles`, { headers: { "x-device-id": id } })
-        .then(r => r.json()).then(setProfiles).catch(console.error);
-    });
+    apiGet("/api/profiles").then(r => r.json()).then(setProfiles).catch(console.error);
     fetch(`${API}/api/templates`).then(r => r.json()).then(setTemplates).catch(console.error);
   }, []);
 
@@ -552,14 +540,14 @@ export default function Home() {
 
     setLoading(true);
     try {
-      const deviceId = await getDeviceId();
       const apiStyle = toApiStyle(style);
       const body = {
-        profile: selectedProfile, jd, template: selectedTemplate, jobTitle, companyName, deviceId,
+        profile: selectedProfile, jd, template: selectedTemplate, jobTitle, companyName,
         randomize, includeCv,
+        jobUrl: jobUrl?.trim() || null,
         ...(Object.keys(apiStyle).length > 0 ? { style: apiStyle } : {}),
       };
-      const res = await fetch(`${API}/api/generate`, {
+      const res = await apiFetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -651,21 +639,22 @@ export default function Home() {
             </div>
             <NavLink icon="⚡" label="Generate"  href="/"          active={true}  />
             <NavLink icon="👤" label="Profiles"  href="/profiles"  active={false} />
+            <NavLink icon="🗂" label="History"   href="/history"   active={false} />
             <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
 
-            <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>
-              Account
-            </div>
-            <NavLink icon="🔑" label="License"  href="/license"   active={false} />
+            {isAdmin() && (
+              <>
+                <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
+                <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
+                <NavLink icon="👥" label="Users" href="/admin" active={false} />
+              </>
+            )}
           </div>
 
           {/* Footer */}
           <div style={{ paddingLeft:"2px" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"4px" }}>
-              <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#10b981", boxShadow:"0 0 5px #10b981" }} />
-              <span style={{ fontSize:"11px", color:"#6b7280" }}>Backend online</span>
-            </div>
+            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{getUser()?.email || ""}</div>
+            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0, marginBottom:"6px" }}>Sign out →</button>
             <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
           </div>
         </aside>

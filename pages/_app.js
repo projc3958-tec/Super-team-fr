@@ -1,65 +1,51 @@
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
+import { isAuthenticated } from "../lib/api";
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const PUBLIC_PATHS = new Set(["/login"]);
 
 export default function App({ Component, pageProps }) {
-  const [checking, setChecking] = useState(true);
   const router = useRouter();
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (router.pathname === '/license') {
-      setChecking(false);
+    const path = router.pathname;
+    const authed = isAuthenticated();
+
+    if (!authed && !PUBLIC_PATHS.has(path)) {
+      router.replace("/login");
       return;
     }
-
-    // Skip check when running in browser (not Electron)
-    if (typeof window === 'undefined' || !window.electronAPI) {
-      setChecking(false);
+    if (authed && path === "/login") {
+      router.replace("/");
       return;
     }
+    setReady(true);
 
-    checkLicense().then((valid) => {
-      if (!valid) {
-        router.replace('/license');
-      } else {
-        setChecking(false);
-      }
-    });
-  }, [checkLicense]);
+    const onAuthChange = () => {
+      const stillAuthed = isAuthenticated();
+      const here = router.pathname;
+      if (!stillAuthed && !PUBLIC_PATHS.has(here)) router.replace("/login");
+    };
+    window.addEventListener("auth:changed", onAuthChange);
+    window.addEventListener("storage", onAuthChange);
+    return () => {
+      window.removeEventListener("auth:changed", onAuthChange);
+      window.removeEventListener("storage", onAuthChange);
+    };
+  }, [router.pathname, router]);
 
-  async function checkLicense() {
-    const [key, deviceId] = await Promise.all([
-      window.electronAPI.getLicense(),
-      window.electronAPI.getDeviceId(),
-    ]);
-
-    if (!key) return false;
-
-    try {
-      const res = await fetch(`${API}/api/license/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, deviceId }),
-      });
-      return res.ok;
-    } catch {
-      // Offline: allow if key file exists
-      return true;
-    }
-  }
-
-  if (checking) {
+  if (!ready) {
     return (
       <div style={{
-        background: '#0a0f1c',
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'sans-serif',
+        background: "#0c0a1e",
+        height: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Inter, sans-serif",
       }}>
-        <p style={{ color: '#22d3ee', fontSize: '16px' }}>Checking license...</p>
+        <p style={{ color: "#a78bfa", fontSize: "14px" }}>Loading…</p>
       </div>
     );
   }

@@ -1,26 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-
-// ─── Device ID ───────────────────────────────────────────────────────────────
-async function resolveDeviceId() {
-  if (typeof window === "undefined") return "default";
-  if (window.electronAPI) return window.electronAPI.getDeviceId();
-  let id = localStorage.getItem("_device_id");
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem("_device_id", id); }
-  return id;
-}
-
-let _deviceId = null;
-async function getDeviceId() {
-  if (!_deviceId) _deviceId = await resolveDeviceId();
-  return _deviceId;
-}
-
-function apiHeaders(deviceId) {
-  return { "Content-Type": "application/json", "x-device-id": deviceId };
-}
+import { apiGet, apiPost, apiPut, apiDelete, getUser, isAdmin, logout } from "../lib/api";
 
 // ─── Logo / Nav (same as other pages) ────────────────────────────────────────
 const Logo = () => (
@@ -280,7 +260,6 @@ function ProfileCard({ profile, active, onClick }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function ProfilesPage() {
-  const [deviceId, setDeviceId] = useState(null);
   const [profiles, setProfiles] = useState([]);
   const [loadingList, setLoadingList] = useState(true);
   const [selectedId, setSelectedId] = useState(null); // null = new, string = editing
@@ -295,17 +274,11 @@ export default function ProfilesPage() {
     setTimeout(() => setToast(null), 2800);
   };
 
-  // Init deviceId
-  useEffect(() => {
-    getDeviceId().then(id => { setDeviceId(id); });
-  }, []);
-
-  // Load profiles when deviceId is ready
-  const loadProfiles = useCallback(async (dId) => {
-    if (!dId) return;
+  // Load profiles
+  const loadProfiles = useCallback(async () => {
     setLoadingList(true);
     try {
-      const res = await fetch(`${API}/api/profiles`, { headers: { "x-device-id": dId } });
+      const res = await apiGet("/api/profiles");
       const data = await res.json();
       setProfiles(data);
     } catch {
@@ -315,13 +288,12 @@ export default function ProfilesPage() {
     }
   }, []);
 
-  useEffect(() => { if (deviceId) loadProfiles(deviceId); }, [deviceId, loadProfiles]);
+  useEffect(() => { loadProfiles(); }, [loadProfiles]);
 
   // Select a profile to edit
   const selectProfile = async (id) => {
-    if (!deviceId) return;
     try {
-      const res = await fetch(`${API}/api/profiles/${id}`, { headers: { "x-device-id": deviceId } });
+      const res = await apiGet(`/api/profiles/${id}`);
       const data = await res.json();
       setForm(fromApiProfile(data));
       setSelectedId(id);
@@ -340,23 +312,19 @@ export default function ProfilesPage() {
   };
 
   const save = async () => {
-    if (!deviceId || !form.name.trim()) return;
+    if (!form.name.trim()) return;
     setSaving(true);
     try {
-      const body = JSON.stringify(toApiProfile(form));
-      const headers = apiHeaders(deviceId);
-      let res;
-      if (isNew) {
-        res = await fetch(`${API}/api/profiles`, { method:"POST", headers, body });
-      } else {
-        res = await fetch(`${API}/api/profiles/${selectedId}`, { method:"PUT", headers, body });
-      }
+      const body = toApiProfile(form);
+      const res = isNew
+        ? await apiPost("/api/profiles", body)
+        : await apiPut(`/api/profiles/${selectedId}`, body);
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || "Failed");
       }
       const saved = await res.json();
-      await loadProfiles(deviceId);
+      await loadProfiles();
       if (isNew) { setSelectedId(saved.id); setIsNew(false); }
       showToast(isNew ? "Profile created!" : "Changes saved!");
     } catch (err) {
@@ -367,14 +335,11 @@ export default function ProfilesPage() {
   };
 
   const deleteProfile = async () => {
-    if (!deviceId || !selectedId) return;
+    if (!selectedId) return;
     try {
-      const res = await fetch(`${API}/api/profiles/${selectedId}`, {
-        method: "DELETE",
-        headers: { "x-device-id": deviceId },
-      });
+      const res = await apiDelete(`/api/profiles/${selectedId}`);
       if (!res.ok) throw new Error("Failed to delete");
-      await loadProfiles(deviceId);
+      await loadProfiles();
       setSelectedId(null);
       setIsNew(false);
       setForm(emptyProfile());
@@ -431,16 +396,19 @@ export default function ProfilesPage() {
             <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Workspace</div>
             <NavLink icon="⚡" label="Generate"  href="/"          active={false} />
             <NavLink icon="👤" label="Profiles"  href="/profiles"  active={true}  />
+            <NavLink icon="🗂" label="History"   href="/history"   active={false} />
             <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
-            <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Account</div>
-            <NavLink icon="🔑" label="License" href="/license" active={false} />
+            {isAdmin() && (
+              <>
+                <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
+                <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
+                <NavLink icon="👥" label="Users" href="/admin" active={false} />
+              </>
+            )}
           </div>
           <div style={{ paddingLeft:"2px" }}>
-            <div style={{ display:"flex", alignItems:"center", gap:"6px", marginBottom:"4px" }}>
-              <div style={{ width:"6px", height:"6px", borderRadius:"50%", background:"#10b981", boxShadow:"0 0 5px #10b981" }} />
-              <span style={{ fontSize:"11px", color:"#6b7280" }}>Backend online</span>
-            </div>
+            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{getUser()?.email || ""}</div>
+            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0, marginBottom:"6px" }}>Sign out →</button>
             <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
           </div>
         </aside>
