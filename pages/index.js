@@ -478,6 +478,7 @@ export default function Home() {
   const [jobUrl, setJobUrl]                   = useState("");
   const [scraping, setScraping]               = useState(false);
   const [scrapeMsg, setScrapeMsg]             = useState(null);
+  const [includeCv, setIncludeCv]             = useState(false);
 
   const scrapeJobUrl = async (urlToFetch) => {
     const target = (urlToFetch ?? jobUrl).trim();
@@ -555,7 +556,7 @@ export default function Home() {
       const apiStyle = toApiStyle(style);
       const body = {
         profile: selectedProfile, jd, template: selectedTemplate, jobTitle, companyName, deviceId,
-        randomize,
+        randomize, includeCv,
         ...(Object.keys(apiStyle).length > 0 ? { style: apiStyle } : {}),
       };
       const res = await fetch(`${API}/api/generate`, {
@@ -565,15 +566,42 @@ export default function Home() {
       });
       if (!res.ok) throw new Error(await res.text() || "Generation failed");
 
-      const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement("a");
-      a.href     = url;
       const san  = s => s ? s.replace(/\s+/g, "").replace(/[^A-Za-z0-9]/g, "") : "";
       const prof = profiles.find(p => p.id === selectedProfile);
-      a.download = `${san(prof?.name || "resume")}_${san(companyName)}_${san(jobTitle)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const fallbackName = `${san(prof?.name || "resume")}_${san(companyName)}_${san(jobTitle)}.pdf`;
+
+      const downloadBlob = (blob, filename) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      };
+
+      const b64ToBlob = (b64) => {
+        const bin = atob(b64);
+        const len = bin.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+        return new Blob([bytes], { type: "application/pdf" });
+      };
+
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        const data = await res.json();
+        if (data?.resume?.base64) {
+          downloadBlob(b64ToBlob(data.resume.base64), data.resume.filename || fallbackName);
+        }
+        if (data?.cv?.base64) {
+          downloadBlob(b64ToBlob(data.cv.base64), data.cv.filename || fallbackName.replace(/\.pdf$/, "_CoverLetter.pdf"));
+        }
+      } else {
+        const blob = await res.blob();
+        downloadBlob(blob, fallbackName);
+      }
     } catch (err) {
       alert(`❌ ${err.message}`);
     } finally {
@@ -862,6 +890,33 @@ export default function Home() {
                 />
               </div>
 
+              {/* Include cover letter toggle */}
+              <label style={{
+                display:"flex", alignItems:"center", gap:"10px",
+                padding:"10px 13px",
+                background: includeCv ? "rgba(139,92,246,0.10)" : "rgba(139,92,246,0.04)",
+                border:`1px solid ${includeCv ? "rgba(139,92,246,0.35)" : "rgba(139,92,246,0.12)"}`,
+                borderRadius:"10px",
+                cursor: loading ? "not-allowed" : "pointer",
+                fontSize:"12.5px", color:"#d4d0ea", fontWeight:"600",
+                transition:"all 0.15s",
+                flexShrink:0,
+              }}>
+                <input
+                  type="checkbox"
+                  checked={includeCv}
+                  onChange={e => setIncludeCv(e.target.checked)}
+                  disabled={loading}
+                  style={{ width:"15px", height:"15px", accentColor:"#8b5cf6", cursor: loading ? "not-allowed" : "pointer" }}
+                />
+                <span>
+                  Include cover letter (CV)
+                  <span style={{ fontSize:"10.5px", color:"#6b7280", fontWeight:"500", display:"block", marginTop:"2px" }}>
+                    Short, professional CV in the same style as the selected template — both PDFs download together.
+                  </span>
+                </span>
+              </label>
+
               {/* Generate button */}
               <button
                 onClick={generatePDF}
@@ -885,19 +940,21 @@ export default function Home() {
                 {loading ? (
                   <>
                     <span style={{ width:"17px", height:"17px", border:"2.5px solid transparent", borderTopColor:"#7c3aed", borderRadius:"50%", animation:"spin 0.75s linear infinite", display:"inline-block" }} />
-                    Generating resume…
+                    {includeCv ? "Generating resume + cover letter…" : "Generating resume…"}
                   </>
                 ) : (
                   <>
                     <span style={{ fontSize:"17px" }}>⚡</span>
-                    Generate Tailored Resume
+                    {includeCv ? "Generate Tailored Resume + Cover Letter" : "Generate Tailored Resume"}
                   </>
                 )}
               </button>
 
               {/* Tip */}
               <p style={{ fontSize:"11px", color:"#374151", textAlign:"center", marginTop:"-4px" }}>
-                PDF downloads automatically · Generation takes ~60 seconds
+                {includeCv
+                  ? "Both PDFs download automatically · Generation takes ~75 seconds"
+                  : "PDF downloads automatically · Generation takes ~60 seconds"}
               </p>
             </div>
 
