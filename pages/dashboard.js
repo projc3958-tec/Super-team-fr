@@ -1,36 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { apiGet, getUser, isAdmin, logout } from "../lib/api";
-
-const Logo = () => (
-  <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="38" height="38" rx="11" fill="url(#dlg)"/>
-    <path d="M21.5 6L12 21h7l-2.5 11 10-15h-7L21.5 6z" fill="white" fillOpacity="0.95"/>
-    <defs>
-      <linearGradient id="dlg" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#8b5cf6"/>
-        <stop offset="1" stopColor="#db2777"/>
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-function NavLink({ icon, label, href, active }) {
-  return (
-    <Link href={href} className="nav-link" style={{
-      display: "flex", alignItems: "center", gap: "10px",
-      padding: "9px 12px", borderRadius: "9px", textDecoration: "none",
-      fontSize: "13.5px", fontWeight: active ? "600" : "500",
-      color: active ? "#e2d9ff" : "#6b7280",
-      background: active ? "rgba(139,92,246,0.18)" : "transparent",
-      border: `1px solid ${active ? "rgba(139,92,246,0.25)" : "transparent"}`,
-      transition: "all 0.15s",
-    }}>
-      <span style={{ fontSize: "15px", opacity: active ? 1 : 0.7 }}>{icon}</span>
-      {label}
-    </Link>
-  );
-}
+import Sidebar from "../components/Sidebar";
+import { apiGet } from "../lib/api";
+import { INTERVIEW_STATUSES, INTERVIEW_RESULTS } from "../lib/interviews";
 
 function StatCard({ label, value, sub, gradient, icon }) {
   return (
@@ -103,7 +74,7 @@ function TimeBarChart({ buckets, period }) {
                 {labelOf(b)}
               </text>
               {b.count > 0 && bh > 12 && (
-                <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize="9" fill="#c4b5fd" fontFamily="Inter">{b.count}</text>
+                <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize="9" fill="var(--accent-2)" fontFamily="Inter">{b.count}</text>
               )}
             </g>
           );
@@ -122,7 +93,7 @@ function ProfileBarList({ data }) {
     <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
       {data.map((d) => (
         <div key={d.name} style={{ display:"flex", alignItems:"center", gap:"10px" }}>
-          <div style={{ width:"160px", fontSize:"12.5px", color:"#cbd5e1", fontWeight:"500", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.name}</div>
+          <div style={{ width:"160px", fontSize:"12.5px", color:"var(--text-2)", fontWeight:"500", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{d.name}</div>
           <div style={{ flex:1, height:"18px", background:"rgba(139,92,246,0.06)", borderRadius:"5px", overflow:"hidden", position:"relative" }}>
             <div style={{
               width: `${(d.count / max) * 100}%`,
@@ -140,19 +111,27 @@ function ProfileBarList({ data }) {
 }
 
 export default function Dashboard() {
-  const [period, setPeriod]     = useState("daily");
-  const [scope, setScope]       = useState("mine");
-  const [stats, setStats]       = useState(null);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState("");
+  const [period, setPeriod]         = useState("daily");
+  const [scope, setScope]           = useState("mine");
+  const [stats, setStats]           = useState(null);
+  const [interviewStats, setInterviewStats] = useState(null);
+  const [funnel, setFunnel]         = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await apiGet(`/api/generations/stats?period=${period}&scope=${scope}`);
-      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
-      setStats(await res.json());
+      const [statsRes, ivRes, funnelRes] = await Promise.all([
+        apiGet(`/api/generations/stats?period=${period}&scope=${scope}`),
+        apiGet("/api/interviews/stats"),
+        apiGet("/api/interviews/funnel"),
+      ]);
+      if (!statsRes.ok) throw new Error(await statsRes.text() || `HTTP ${statsRes.status}`);
+      setStats(await statsRes.json());
+      if (ivRes.ok) setInterviewStats(await ivRes.json());
+      if (funnelRes.ok) setFunnel(await funnelRes.json());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -178,53 +157,19 @@ export default function Dashboard() {
         .nav-link:hover { background:rgba(139,92,246,0.1)!important; color:#c4b5fd!important; }
       `}</style>
 
-      <div style={{ display:"flex", height:"100vh", background:"#0c0a1e" }}>
-
-        <aside style={{
-          width:"220px", flexShrink:0,
-          background:"#08061a",
-          borderRight:"1px solid rgba(139,92,246,0.1)",
-          display:"flex", flexDirection:"column",
-          padding:"22px 14px",
-        }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"32px", paddingLeft:"2px" }}>
-            <Logo />
-            <div>
-              <div style={{ fontSize:"15px", fontWeight:"700", color:"#f1f5f9", letterSpacing:"-0.2px" }}>Super Team</div>
-              <div style={{ fontSize:"9.5px", fontWeight:"600", color:"#7c3aed", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"1px" }}>Resume Studio</div>
-            </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Workspace</div>
-            <NavLink icon="⚡" label="Generate"  href="/"          active={false} />
-            <NavLink icon="👤" label="Profiles"  href="/profiles"  active={false} />
-            <NavLink icon="🗂" label="History"   href="/history"   active={false} />
-            <NavLink icon="📊" label="Dashboard" href="/dashboard" active={true}  />
-            {isAdmin() && (
-              <>
-                <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-                <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
-                <NavLink icon="👥" label="Users" href="/admin" active={false} />
-              </>
-            )}
-          </div>
-          <div style={{ paddingLeft:"2px" }}>
-            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{getUser()?.email || ""}</div>
-            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0, marginBottom:"6px" }}>Sign out →</button>
-            <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
-          </div>
-        </aside>
+      <div style={{ display:"flex", height:"100vh", background:"var(--bg)" }}>
+        <Sidebar active="dashboard" />
 
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
 
           <header style={{
             padding:"0 28px", height:"56px", flexShrink:0,
-            background:"rgba(8,6,26,0.6)", backdropFilter:"blur(12px)",
+            background:"var(--topbar-bg)", backdropFilter:"blur(12px)",
             borderBottom:"1px solid rgba(139,92,246,0.08)",
             display:"flex", alignItems:"center", justifyContent:"space-between",
           }}>
             <div>
-              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9" }}>Generation Dashboard</h1>
+              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)" }}>Generation Dashboard</h1>
               <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"1px" }}>{periodLabel} · {scope === "all" ? "all profiles (cross-device)" : "your profiles only"}</p>
             </div>
             <button
@@ -297,7 +242,7 @@ export default function Dashboard() {
                   borderRadius:"16px", padding:"22px 26px", marginBottom:"20px",
                 }}>
                   <div style={{ marginBottom:"16px" }}>
-                    <h2 style={{ fontSize:"15px", fontWeight:"600", color:"#e2d9ff" }}>Generation activity over time</h2>
+                    <h2 style={{ fontSize:"15px", fontWeight:"600", color:"var(--accent-2)" }}>Generation activity over time</h2>
                     <p style={{ fontSize:"12px", color:"#4b5563", marginTop:"3px" }}>{periodLabel}</p>
                   </div>
                   <TimeBarChart buckets={stats.buckets} period={period} />
@@ -305,14 +250,67 @@ export default function Dashboard() {
 
                 <div style={{
                   background:"rgba(139,92,246,0.04)", border:"1px solid rgba(139,92,246,0.1)",
-                  borderRadius:"16px", padding:"22px 26px",
+                  borderRadius:"16px", padding:"22px 26px", marginBottom:"20px",
                 }}>
                   <div style={{ marginBottom:"16px" }}>
-                    <h2 style={{ fontSize:"15px", fontWeight:"600", color:"#e2d9ff" }}>By profile {scope === "all" && <span style={{ fontSize:"11px", color:"#7c6fcd", fontWeight:"500", marginLeft:"6px" }}>· cross-device counts (anonymous)</span>}</h2>
+                    <h2 style={{ fontSize:"15px", fontWeight:"600", color:"var(--accent-2)" }}>By profile {scope === "all" && <span style={{ fontSize:"11px", color:"var(--label)", fontWeight:"500", marginLeft:"6px" }}>· cross-device counts (anonymous)</span>}</h2>
                     <p style={{ fontSize:"12px", color:"#4b5563", marginTop:"3px" }}>Top profiles in the selected period</p>
                   </div>
                   <ProfileBarList data={stats.byProfile} />
                 </div>
+
+                {interviewStats && (
+                  <div style={{
+                    background:"rgba(139,92,246,0.04)", border:"1px solid rgba(139,92,246,0.1)",
+                    borderRadius:"16px", padding:"22px 26px", marginBottom:"20px",
+                  }}>
+                    <div style={{ marginBottom:"16px", display:"flex", alignItems:"baseline", justifyContent:"space-between", flexWrap:"wrap", gap:"8px" }}>
+                      <div>
+                        <h2 style={{ fontSize:"15px", fontWeight:"600", color:"var(--accent-2)" }}>Interview pipeline</h2>
+                        <p style={{ fontSize:"12px", color:"#4b5563", marginTop:"3px" }}>{interviewStats.total} total · {interviewStats.upcoming} upcoming</p>
+                      </div>
+                    </div>
+
+                    <InterviewFunnel stats={interviewStats} />
+                  </div>
+                )}
+
+                {funnel && (
+                  <>
+                    <div style={{
+                      background:"rgba(139,92,246,0.04)", border:"1px solid rgba(139,92,246,0.1)",
+                      borderRadius:"16px", padding:"22px 26px", marginBottom:"20px",
+                    }}>
+                      <div style={{ marginBottom:"16px" }}>
+                        <h2 style={{ fontSize:"15px", fontWeight:"600", color:"var(--accent-2)" }}>Conversion funnel</h2>
+                        <p style={{ fontSize:"12px", color:"#4b5563", marginTop:"3px" }}>Resumes generated → interviews scheduled → outcomes</p>
+                      </div>
+                      <ConversionFunnel funnel={funnel} />
+                    </div>
+
+                    <div style={{
+                      background:"rgba(139,92,246,0.04)", border:"1px solid rgba(139,92,246,0.1)",
+                      borderRadius:"16px", padding:"22px 26px", marginBottom:"20px",
+                    }}>
+                      <div style={{ marginBottom:"16px" }}>
+                        <h2 style={{ fontSize:"15px", fontWeight:"600", color:"var(--accent-2)" }}>Pass rate by interview type</h2>
+                        <p style={{ fontSize:"12px", color:"#4b5563", marginTop:"3px" }}>Share of decided rounds that advanced (passed or offer)</p>
+                      </div>
+                      <TypePassRates rows={funnel.byType} />
+                    </div>
+
+                    <div style={{
+                      background:"rgba(139,92,246,0.04)", border:"1px solid rgba(139,92,246,0.1)",
+                      borderRadius:"16px", padding:"22px 26px",
+                    }}>
+                      <div style={{ marginBottom:"16px" }}>
+                        <h2 style={{ fontSize:"15px", fontWeight:"600", color:"var(--accent-2)" }}>Resumes vs interviews by profile</h2>
+                        <p style={{ fontSize:"12px", color:"#4b5563", marginTop:"3px" }}>Interview rate per resume profile (interviews / resumes)</p>
+                      </div>
+                      <ProfileConversion rows={funnel.byProfile} />
+                    </div>
+                  </>
+                )}
               </>
             )}
           </div>
@@ -322,10 +320,166 @@ export default function Dashboard() {
   );
 }
 
+function pct(x) {
+  if (x == null || !Number.isFinite(x)) return "—";
+  return `${Math.round(x * 1000) / 10}%`;
+}
+
+function ConversionFunnel({ funnel }) {
+  const { totals } = funnel;
+  // 4-step funnel: Resumes → Interviews → Completed → Offers
+  const steps = [
+    { label: "Resumes generated",  value: totals.resumes,    color: "#a78bfa", basis: totals.resumes },
+    { label: "Interviews scheduled", value: totals.interviews, color: "#22d3ee", basis: totals.resumes },
+    { label: "Interviews completed", value: totals.completed,  color: "#10b981", basis: totals.interviews },
+    { label: "Offers received",     value: totals.offers,     color: "#fb923c", basis: totals.interviews },
+  ];
+  const max = Math.max(1, totals.resumes, totals.interviews);
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+      {steps.map((s, i) => {
+        const ratio = s.basis > 0 ? s.value / s.basis : null;
+        const widthPct = (s.value / max) * 100;
+        const subline = i === 0
+          ? "of all resumes"
+          : i === 1 ? `${pct(ratio)} of resumes`
+          : i === 2 ? `${pct(ratio)} of interviews`
+          : `${pct(ratio)} of interviews`;
+        return (
+          <div key={s.label} style={{ display:"flex", alignItems:"center", gap:"14px" }}>
+            <div style={{ width:"170px", fontSize:"12.5px", color:"var(--text-2)", fontWeight:"600" }}>{s.label}</div>
+            <div style={{ flex:1, height:"24px", background:"var(--surface-2)", borderRadius:"6px", overflow:"hidden", position:"relative" }}>
+              <div style={{
+                width: `${widthPct}%`,
+                height: "100%",
+                background: s.color,
+                borderRadius: "6px",
+                transition: "width 0.3s",
+              }}/>
+              <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", paddingLeft:"10px", fontSize:"12px", fontWeight:"700", color:"#fff", mixBlendMode:"luminosity" }}>{s.value}</div>
+            </div>
+            <div style={{ width:"110px", textAlign:"right", fontSize:"11.5px", color:"var(--text-muted)" }}>{subline}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TypePassRates({ rows }) {
+  const labelByType = {
+    hr: "HR / Recruiter",
+    technical: "Technical",
+    behavioral: "Behavioral",
+    system_design: "System design",
+    final: "Final / On-site",
+    other: "Other",
+  };
+  const visible = rows.filter(r => r.scheduled > 0);
+  if (visible.length === 0) {
+    return <p style={{ color:"var(--text-faint)", fontSize:"13px", textAlign:"center", padding:"24px 0" }}>No interview rounds yet.</p>;
+  }
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:"8px" }}>
+      {visible.map(r => (
+        <div key={r.type} style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+          <div style={{ width:"160px", fontSize:"12.5px", color:"var(--text-2)", fontWeight:"500" }}>{labelByType[r.type] || r.type}</div>
+          <div style={{ flex:1, height:"18px", background:"var(--surface-2)", borderRadius:"5px", overflow:"hidden" }}>
+            <div style={{
+              width: r.passRate != null ? `${r.passRate * 100}%` : "0%",
+              height:"100%",
+              background:"linear-gradient(90deg,#10b981,#22d3ee)",
+              borderRadius:"5px",
+              transition:"width 0.3s",
+            }}/>
+          </div>
+          <div style={{ width:"170px", textAlign:"right", fontSize:"12px", color:"var(--text-muted)" }}>
+            <strong style={{ color: r.passRate != null ? "#10b981" : "var(--text-faint)" }}>{pct(r.passRate)}</strong>
+            <span style={{ marginLeft:"6px" }}>({r.passed} / {r.decided} decided · {r.scheduled} scheduled)</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProfileConversion({ rows }) {
+  if (!rows || rows.length === 0) {
+    return <p style={{ color:"var(--text-faint)", fontSize:"13px", textAlign:"center", padding:"24px 0" }}>No resumes generated yet.</p>;
+  }
+  const max = Math.max(1, ...rows.map(r => r.resumes));
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:"10px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"160px 1fr 1fr 80px", gap:"10px", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", paddingBottom:"4px", borderBottom:"1px solid var(--border-soft)" }}>
+        <div>Profile</div>
+        <div>Resumes</div>
+        <div>Interviews</div>
+        <div style={{ textAlign:"right" }}>Rate</div>
+      </div>
+      {rows.map(r => (
+        <div key={r.name} style={{ display:"grid", gridTemplateColumns:"160px 1fr 1fr 80px", gap:"10px", alignItems:"center" }}>
+          <div style={{ fontSize:"12.5px", color:"var(--text)", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{r.name}</div>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <div style={{ flex:1, height:"14px", background:"var(--surface-2)", borderRadius:"4px", overflow:"hidden" }}>
+              <div style={{ width: `${(r.resumes / max) * 100}%`, height:"100%", background:"#a78bfa", borderRadius:"4px" }}/>
+            </div>
+            <div style={{ width:"32px", textAlign:"right", fontSize:"12px", color:"var(--accent)", fontWeight:"700" }}>{r.resumes}</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:"8px" }}>
+            <div style={{ flex:1, height:"14px", background:"var(--surface-2)", borderRadius:"4px", overflow:"hidden" }}>
+              <div style={{ width: `${(r.interviews / max) * 100}%`, height:"100%", background:"#22d3ee", borderRadius:"4px" }}/>
+            </div>
+            <div style={{ width:"32px", textAlign:"right", fontSize:"12px", color:"#22d3ee", fontWeight:"700" }}>{r.interviews}</div>
+          </div>
+          <div style={{ textAlign:"right", fontSize:"12px", fontWeight:"700", color: r.rate > 0 ? "#10b981" : "var(--text-faint)" }}>{pct(r.rate)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InterviewFunnel({ stats }) {
+  const statusMap = Object.fromEntries((stats.byStatus || []).map(s => [s.status, s.count]));
+  const resultMap = Object.fromEntries((stats.byResult || []).map(s => [s.result, s.count]));
+
+  const statusRows = INTERVIEW_STATUSES.map(s => ({ label: s.label, color: s.color, count: statusMap[s.value] || 0 }));
+  const resultRows = INTERVIEW_RESULTS.map(s => ({ label: s.label, color: s.color, count: resultMap[s.value] || 0 }));
+
+  const statusMax = Math.max(1, ...statusRows.map(r => r.count));
+  const resultMax = Math.max(1, ...resultRows.map(r => r.count));
+
+  const Row = ({ label, color, count, max }) => (
+    <div style={{ display:"flex", alignItems:"center", gap:"10px" }}>
+      <div style={{ width:"110px", fontSize:"12.5px", color:"var(--text-2)", fontWeight:"500" }}>{label}</div>
+      <div style={{ flex:1, height:"18px", background:"var(--surface-2)", borderRadius:"5px", overflow:"hidden" }}>
+        <div style={{ width: `${(count / max) * 100}%`, height:"100%", background: color, borderRadius:"5px", transition:"width 0.3s" }}/>
+      </div>
+      <div style={{ width:"40px", textAlign:"right", fontSize:"13px", fontWeight:"700", color: count ? color : "var(--text-faint)" }}>{count}</div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"22px" }}>
+      <div>
+        <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"10px" }}>By status</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:"7px" }}>
+          {statusRows.map(r => <Row key={r.label} label={r.label} color={r.color} count={r.count} max={statusMax} />)}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize:"11px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"10px" }}>By result</div>
+        <div style={{ display:"flex", flexDirection:"column", gap:"7px" }}>
+          {resultRows.map(r => <Row key={r.label} label={r.label} color={r.color} count={r.count} max={resultMax} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SegmentedControl({ label, value, onChange, options }) {
   return (
     <div>
-      <div style={{ fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"6px" }}>{label}</div>
+      <div style={{ fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"6px" }}>{label}</div>
       <div style={{ display:"inline-flex", background:"rgba(139,92,246,0.06)", border:"1px solid rgba(139,92,246,0.15)", borderRadius:"9px", padding:"3px" }}>
         {options.map((o) => (
           <button
@@ -334,7 +488,7 @@ function SegmentedControl({ label, value, onChange, options }) {
             style={{
               padding:"6px 14px", fontSize:"12px", fontWeight:"600",
               background: value === o.value ? "linear-gradient(135deg, #7c3aed 0%, #db2777 100%)" : "transparent",
-              color: value === o.value ? "#fff" : "#94a3b8",
+              color: value === o.value ? "#fff" : "var(--text-muted)",
               border:"none", borderRadius:"7px", cursor:"pointer",
               transition:"all 0.15s",
             }}

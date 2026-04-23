@@ -1,46 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
-import { apiGet, apiPost, apiPut, apiDelete, getUser, isAdmin, logout } from "../lib/api";
+import Sidebar from "../components/Sidebar";
+import { apiGet, apiPost, apiPut, apiDelete, getUser, isAdmin } from "../lib/api";
 
 const ALLOWED_PERMISSIONS = [
   { value: "view_all_stats", label: "View all-profile stats" },
 ];
 
-const Logo = () => (
-  <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="38" height="38" rx="11" fill="url(#alg)"/>
-    <path d="M21.5 6L12 21h7l-2.5 11 10-15h-7L21.5 6z" fill="white" fillOpacity="0.95"/>
-    <defs>
-      <linearGradient id="alg" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#8b5cf6"/>
-        <stop offset="1" stopColor="#db2777"/>
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-function NavLink({ icon, label, href, active }) {
-  return (
-    <Link href={href} className="nav-link" style={{
-      display: "flex", alignItems: "center", gap: "10px",
-      padding: "9px 12px", borderRadius: "9px", textDecoration: "none",
-      fontSize: "13.5px", fontWeight: active ? "600" : "500",
-      color: active ? "#e2d9ff" : "#6b7280",
-      background: active ? "rgba(139,92,246,0.18)" : "transparent",
-      border: `1px solid ${active ? "rgba(139,92,246,0.25)" : "transparent"}`,
-      transition: "all 0.15s",
-    }}>
-      <span style={{ fontSize: "15px", opacity: active ? 1 : 0.7 }}>{icon}</span>
-      {label}
-    </Link>
-  );
-}
-
 const fieldBase = {
   width: "100%", padding: "9px 12px", fontSize: "13px",
-  background: "rgba(12,10,30,0.7)", border: "1px solid rgba(139,92,246,0.18)",
-  borderRadius: "9px", outline: "none", color: "#e2e8f0",
+  background: "var(--field-bg)", border: "1px solid rgba(139,92,246,0.18)",
+  borderRadius: "9px", outline: "none", color: "var(--text)",
   transition: "border-color 0.2s, box-shadow 0.2s", fontFamily: "inherit",
 };
 
@@ -60,6 +30,10 @@ export default function Admin() {
   const [creating, setCreating]     = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [revealed, setRevealed]     = useState(null); // { email, password }
+  const [wipeOpen, setWipeOpen]     = useState(false);
+  const [wipeText, setWipeText]     = useState("");
+  const [wiping, setWiping]         = useState(false);
+  const [wipeReport, setWipeReport] = useState(null);
 
   // create form state
   const [newEmail, setNewEmail]         = useState("");
@@ -172,12 +146,34 @@ export default function Admin() {
   };
 
   const onDelete = async (user) => {
-    if (!confirm(`Permanently delete ${user.email}? Their resumes/profiles will be orphaned but not deleted.`)) return;
+    if (!confirm(`Permanently delete ${user.email} AND their profiles, resumes, generations, interviews, and stored PDFs? This cannot be undone.`)) return;
     try {
       const res = await apiDelete(`/api/users/${user.id}`);
-      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      const p = data.purged || {};
+      alert(`Deleted ${user.email}.\nRemoved: ${p.profiles||0} profile(s), ${p.generations||0} generation(s), ${p.interviews||0} interview(s), ${p.r2Objects||0} R2 object(s).`);
       refresh();
     } catch (err) { alert("Delete failed: " + err.message); }
+  };
+
+  const onWipeAll = async () => {
+    if (wiping) return;
+    if (wipeText !== "RESET") return;
+    setWiping(true);
+    try {
+      const res = await apiPost("/api/users/reset-all", { confirm: "RESET" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+      setWipeReport(data.removed || {});
+      setWipeOpen(false);
+      setWipeText("");
+      refresh();
+    } catch (err) {
+      alert("Wipe failed: " + err.message);
+    } finally {
+      setWiping(false);
+    }
   };
 
   const copyPassword = async (text) => {
@@ -200,61 +196,101 @@ export default function Admin() {
         .field:focus { border-color:rgba(139,92,246,0.55)!important; box-shadow:0 0 0 3px rgba(139,92,246,0.12)!important; }
       `}</style>
 
-      <div style={{ display:"flex", height:"100vh", background:"#0c0a1e" }}>
-
-        <aside style={{
-          width:"220px", flexShrink:0,
-          background:"#08061a",
-          borderRight:"1px solid rgba(139,92,246,0.1)",
-          display:"flex", flexDirection:"column",
-          padding:"22px 14px",
-        }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"32px", paddingLeft:"2px" }}>
-            <Logo />
-            <div>
-              <div style={{ fontSize:"15px", fontWeight:"700", color:"#f1f5f9", letterSpacing:"-0.2px" }}>Super Team</div>
-              <div style={{ fontSize:"9.5px", fontWeight:"600", color:"#7c3aed", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"1px" }}>Resume Studio</div>
-            </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Workspace</div>
-            <NavLink icon="⚡" label="Generate"  href="/"          active={false} />
-            <NavLink icon="👤" label="Profiles"  href="/profiles"  active={false} />
-            <NavLink icon="🗂" label="History"   href="/history"   active={false} />
-            <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
-            <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
-            <NavLink icon="👥" label="Users" href="/admin" active={true} />
-          </div>
-          <div style={{ paddingLeft:"2px" }}>
-            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600" }}>{me?.email}</div>
-            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0 }}>Sign out →</button>
-          </div>
-        </aside>
+      <div style={{ display:"flex", height:"100vh", background:"var(--bg)" }}>
+        <Sidebar active="admin" />
 
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
 
           <header style={{
             padding:"0 28px", height:"56px", flexShrink:0,
-            background:"rgba(8,6,26,0.6)", backdropFilter:"blur(12px)",
+            background:"var(--topbar-bg)", backdropFilter:"blur(12px)",
             borderBottom:"1px solid rgba(139,92,246,0.08)",
             display:"flex", alignItems:"center", justifyContent:"space-between",
           }}>
             <div>
-              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9" }}>User Management</h1>
+              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)" }}>User Management</h1>
               <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"1px" }}>Create accounts, set permissions, reset passwords</p>
             </div>
-            <button
-              onClick={() => setShowCreate(s => !s)}
-              style={{
-                padding:"8px 16px", fontSize:"12.5px", fontWeight:"700",
-                background:"linear-gradient(135deg, #7c3aed 0%, #db2777 100%)",
-                border:"none", borderRadius:"9px", color:"#fff", cursor:"pointer",
-              }}
-            >+ New user</button>
+            <div style={{ display:"flex", gap:"8px" }}>
+              <button
+                onClick={() => { setWipeOpen(true); setWipeText(""); }}
+                style={{
+                  padding:"8px 14px", fontSize:"12.5px", fontWeight:"600",
+                  background:"rgba(239,68,68,0.10)", border:"1px solid rgba(239,68,68,0.35)",
+                  borderRadius:"9px", color:"var(--danger)", cursor:"pointer",
+                }}
+              >⚠ Wipe all data</button>
+              <button
+                onClick={() => setShowCreate(s => !s)}
+                style={{
+                  padding:"8px 16px", fontSize:"12.5px", fontWeight:"700",
+                  background:"linear-gradient(135deg, #7c3aed 0%, #db2777 100%)",
+                  border:"none", borderRadius:"9px", color:"#fff", cursor:"pointer",
+                }}
+              >+ New user</button>
+            </div>
           </header>
 
           <div style={{ flex:1, overflowY:"auto", padding:"22px 28px" }}>
+
+            {wipeOpen && (
+              <div style={{
+                padding:"18px 22px", marginBottom:"18px",
+                background:"rgba(239,68,68,0.06)", border:"1px solid rgba(239,68,68,0.30)",
+                borderRadius:"12px",
+              }}>
+                <div style={{ fontSize:"14px", fontWeight:"700", color:"var(--danger)", marginBottom:"6px" }}>
+                  Wipe all application data
+                </div>
+                <div style={{ fontSize:"12.5px", color:"var(--text-2)", lineHeight:"1.5", marginBottom:"12px" }}>
+                  This will permanently delete <strong>all non-admin users</strong>, <strong>all profiles</strong>, <strong>all generated resumes & cover letters</strong>, <strong>all interviews</strong>, and <strong>all stored PDFs in R2</strong>. Admin accounts are preserved.
+                  <br/>This action cannot be undone. Type <code style={{ fontFamily:"monospace", color:"var(--accent)", background:"var(--surface-2)", padding:"1px 6px", borderRadius:"4px" }}>RESET</code> to confirm.
+                </div>
+                <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                  <input
+                    autoFocus
+                    type="text"
+                    value={wipeText}
+                    onChange={e => setWipeText(e.target.value)}
+                    placeholder="Type RESET to confirm"
+                    style={{
+                      flex:1, padding:"9px 12px", fontSize:"13px",
+                      background:"var(--field-bg)", border:"1px solid var(--border)",
+                      borderRadius:"9px", outline:"none", color:"var(--text)", fontFamily:"inherit",
+                    }}
+                  />
+                  <button onClick={onWipeAll} disabled={wiping || wipeText !== "RESET"} style={{
+                    padding:"9px 18px", fontSize:"12.5px", fontWeight:"700",
+                    background: (wiping || wipeText !== "RESET") ? "rgba(239,68,68,0.25)" : "rgba(239,68,68,0.85)",
+                    border:"none", borderRadius:"9px", color:"#fff",
+                    cursor: (wiping || wipeText !== "RESET") ? "not-allowed" : "pointer",
+                  }}>{wiping ? "Wiping…" : "Wipe everything"}</button>
+                  <button onClick={() => { setWipeOpen(false); setWipeText(""); }} style={{
+                    padding:"9px 14px", fontSize:"12.5px", fontWeight:"600",
+                    background:"transparent", border:"1px solid var(--border)",
+                    borderRadius:"9px", color:"var(--label)", cursor:"pointer",
+                  }}>Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {wipeReport && (
+              <div style={{
+                padding:"14px 18px", marginBottom:"18px",
+                background:"rgba(245,158,11,0.10)", border:"1px solid rgba(245,158,11,0.30)",
+                borderRadius:"12px",
+                display:"flex", alignItems:"center", justifyContent:"space-between", gap:"14px", flexWrap:"wrap",
+              }}>
+                <div style={{ fontSize:"12.5px", color:"var(--text-2)" }}>
+                  <strong style={{ color:"#fcd34d" }}>Wipe complete.</strong> Removed: {wipeReport.nonAdminUsers||0} user(s), {wipeReport.profiles||0} profile(s), {wipeReport.generations||0} generation(s), {wipeReport.interviews||0} interview(s), {wipeReport.r2Objects||0} R2 object(s).
+                </div>
+                <button onClick={() => setWipeReport(null)} style={{
+                  padding:"6px 12px", fontSize:"11.5px", fontWeight:"600",
+                  background:"transparent", border:"1px solid var(--border)",
+                  borderRadius:"7px", color:"var(--label)", cursor:"pointer",
+                }}>Dismiss</button>
+              </div>
+            )}
 
             {revealed && (
               <div style={{
@@ -265,7 +301,7 @@ export default function Admin() {
               }}>
                 <div>
                   <div style={{ fontSize:"12px", color:"#6ee7b7", fontWeight:"700", marginBottom:"4px" }}>Password generated for {revealed.email}</div>
-                  <div style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:"14px", color:"#f1f5f9", letterSpacing:"0.5px" }}>{revealed.password}</div>
+                  <div style={{ fontFamily:"'JetBrains Mono', monospace", fontSize:"14px", color:"var(--text)", letterSpacing:"0.5px" }}>{revealed.password}</div>
                   <div style={{ fontSize:"11px", color:"#6b7280", marginTop:"4px" }}>Share this once and securely. It will not be shown again.</div>
                 </div>
                 <div style={{ display:"flex", gap:"8px" }}>
@@ -277,7 +313,7 @@ export default function Admin() {
                   <button onClick={() => setRevealed(null)} style={{
                     padding:"7px 14px", fontSize:"12px", fontWeight:"600",
                     background:"transparent", border:"1px solid rgba(139,92,246,0.25)",
-                    borderRadius:"8px", color:"#7c6fcd", cursor:"pointer",
+                    borderRadius:"8px", color:"var(--label)", cursor:"pointer",
                   }}>Dismiss</button>
                 </div>
               </div>
@@ -288,28 +324,28 @@ export default function Admin() {
                 background:"rgba(139,92,246,0.04)", border:"1px solid rgba(139,92,246,0.15)",
                 borderRadius:"14px", padding:"18px 22px", marginBottom:"18px",
               }}>
-                <div style={{ fontSize:"13px", fontWeight:"700", color:"#e2d9ff", marginBottom:"12px" }}>Create user</div>
+                <div style={{ fontSize:"13px", fontWeight:"700", color:"var(--accent-2)", marginBottom:"12px" }}>Create user</div>
                 <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"12px", marginBottom:"12px" }}>
                   <div>
-                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Email</label>
+                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Email</label>
                     <input className="field" type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="user@company.com" style={fieldBase} />
                   </div>
                   <div>
-                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Display name</label>
+                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Display name</label>
                     <input className="field" type="text" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Full name (optional)" style={fieldBase} />
                   </div>
                   <div>
-                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Role</label>
+                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Role</label>
                     <select className="field" value={newRole} onChange={e => setNewRole(e.target.value)} style={fieldBase}>
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
                     </select>
                   </div>
                   <div>
-                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Permissions</label>
+                    <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Permissions</label>
                     <div style={{ display:"flex", flexWrap:"wrap", gap:"8px", padding:"6px 0" }}>
                       {ALLOWED_PERMISSIONS.map(p => (
-                        <label key={p.value} style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", color:"#cbd5e1", cursor:"pointer" }}>
+                        <label key={p.value} style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"12px", color:"var(--text-2)", cursor:"pointer" }}>
                           <input type="checkbox" checked={newPerms.includes(p.value)} onChange={() => togglePerm(p.value)} style={{ accentColor:"#8b5cf6" }} />
                           {p.label}
                         </label>
@@ -319,7 +355,7 @@ export default function Admin() {
                 </div>
 
                 <div style={{ display:"flex", flexDirection:"column", gap:"8px", marginBottom:"14px" }}>
-                  <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12.5px", color:"#cbd5e1", cursor:"pointer" }}>
+                  <label style={{ display:"flex", alignItems:"center", gap:"8px", fontSize:"12.5px", color:"var(--text-2)", cursor:"pointer" }}>
                     <input type="checkbox" checked={newGenerate} onChange={e => setNewGenerate(e.target.checked)} style={{ accentColor:"#8b5cf6" }} />
                     Generate a random password (recommended; will be shown once)
                   </label>
@@ -349,7 +385,7 @@ export default function Admin() {
                   <button type="button" onClick={() => { setShowCreate(false); setError(""); }} style={{
                     padding:"10px 16px", fontSize:"12.5px", fontWeight:"600",
                     background:"transparent", border:"1px solid rgba(139,92,246,0.25)",
-                    borderRadius:"9px", color:"#7c6fcd", cursor:"pointer",
+                    borderRadius:"9px", color:"var(--label)", cursor:"pointer",
                   }}>Cancel</button>
                 </div>
               </form>
@@ -363,7 +399,7 @@ export default function Admin() {
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
                   <thead>
-                    <tr style={{ background:"rgba(139,92,246,0.07)", color:"#7c6fcd", textAlign:"left" }}>
+                    <tr style={{ background:"rgba(139,92,246,0.07)", color:"var(--label)", textAlign:"left" }}>
                       {["Email", "Name", "Role", "Permissions", "Status", "Created", "Last login", "Actions"].map(h => (
                         <th key={h} style={{ padding:"11px 14px", fontSize:"10.5px", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.6px", borderBottom:"1px solid rgba(139,92,246,0.1)" }}>{h}</th>
                       ))}
@@ -378,8 +414,8 @@ export default function Admin() {
                     )}
                     {users.map(u => (
                       <tr key={u.id} style={{ borderBottom:"1px solid rgba(139,92,246,0.06)" }}>
-                        <td style={{ padding:"10px 14px", color:"#e2e8f0" }}>{u.email}</td>
-                        <td style={{ padding:"10px 14px", color:"#cbd5e1" }}>{u.name || "—"}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text)" }}>{u.email}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text-2)" }}>{u.name || "—"}</td>
                         <td style={{ padding:"10px 14px" }}>
                           <select value={u.role} onChange={e => onUpdateRole(u, e.target.value)} style={{ ...fieldBase, padding:"5px 8px", fontSize:"12px", width:"auto" }}>
                             <option value="user">user</option>
@@ -389,7 +425,7 @@ export default function Admin() {
                         <td style={{ padding:"10px 14px" }}>
                           <div style={{ display:"flex", flexDirection:"column", gap:"4px" }}>
                             {ALLOWED_PERMISSIONS.map(p => (
-                              <label key={p.value} style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11.5px", color:"#cbd5e1", cursor: u.role === "admin" ? "not-allowed" : "pointer", opacity: u.role === "admin" ? 0.55 : 1 }}>
+                              <label key={p.value} style={{ display:"flex", alignItems:"center", gap:"6px", fontSize:"11.5px", color:"var(--text-2)", cursor: u.role === "admin" ? "not-allowed" : "pointer", opacity: u.role === "admin" ? 0.55 : 1 }}>
                                 <input
                                   type="checkbox"
                                   checked={u.role === "admin" || u.permissions.includes(p.value)}
@@ -411,13 +447,13 @@ export default function Admin() {
                             border: `1px solid ${u.disabled ? "rgba(239,68,68,0.25)" : "rgba(16,185,129,0.25)"}`,
                           }}>{u.disabled ? "Disabled" : "Active"}</span>
                         </td>
-                        <td style={{ padding:"10px 14px", color:"#94a3b8", whiteSpace:"nowrap" }}>{fmtDate(u.createdAt)}</td>
-                        <td style={{ padding:"10px 14px", color:"#94a3b8", whiteSpace:"nowrap" }}>{fmtDate(u.lastLoginAt)}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text-muted)", whiteSpace:"nowrap" }}>{fmtDate(u.createdAt)}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text-muted)", whiteSpace:"nowrap" }}>{fmtDate(u.lastLoginAt)}</td>
                         <td style={{ padding:"10px 14px", whiteSpace:"nowrap" }}>
                           <button onClick={() => onResetPassword(u)} style={{
                             padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
                             background:"rgba(139,92,246,0.18)", border:"1px solid rgba(139,92,246,0.3)",
-                            borderRadius:"7px", color:"#c4b5fd", cursor:"pointer", marginRight:"6px",
+                            borderRadius:"7px", color:"var(--accent-2)", cursor:"pointer", marginRight:"6px",
                           }}>Reset PW</button>
                           <button onClick={() => onToggleDisabled(u)} style={{
                             padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",

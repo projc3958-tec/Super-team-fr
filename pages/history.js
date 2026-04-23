@@ -1,41 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { apiGet, apiFetch, getUser, isAdmin, logout } from "../lib/api";
-
-const Logo = () => (
-  <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="38" height="38" rx="11" fill="url(#hlg)"/>
-    <path d="M21.5 6L12 21h7l-2.5 11 10-15h-7L21.5 6z" fill="white" fillOpacity="0.95"/>
-    <defs>
-      <linearGradient id="hlg" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#8b5cf6"/>
-        <stop offset="1" stopColor="#db2777"/>
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-function NavLink({ icon, label, href, active }) {
-  return (
-    <Link href={href} className="nav-link" style={{
-      display: "flex", alignItems: "center", gap: "10px",
-      padding: "9px 12px", borderRadius: "9px", textDecoration: "none",
-      fontSize: "13.5px", fontWeight: active ? "600" : "500",
-      color: active ? "#e2d9ff" : "#6b7280",
-      background: active ? "rgba(139,92,246,0.18)" : "transparent",
-      border: `1px solid ${active ? "rgba(139,92,246,0.25)" : "transparent"}`,
-      transition: "all 0.15s",
-    }}>
-      <span style={{ fontSize: "15px", opacity: active ? 1 : 0.7 }}>{icon}</span>
-      {label}
-    </Link>
-  );
-}
+import { useRouter } from "next/router";
+import Sidebar from "../components/Sidebar";
+import { apiGet, apiFetch } from "../lib/api";
+import { typeLabel, statusMeta, resultMeta } from "../lib/interviews";
 
 const fieldBase = {
   width: "100%", padding: "9px 12px", fontSize: "13px",
-  background: "rgba(12,10,30,0.7)", border: "1px solid rgba(139,92,246,0.18)",
-  borderRadius: "9px", outline: "none", color: "#e2e8f0",
+  background: "var(--field-bg)", border: "1px solid rgba(139,92,246,0.18)",
+  borderRadius: "9px", outline: "none", color: "var(--text)",
   transition: "border-color 0.2s, box-shadow 0.2s", fontFamily: "inherit",
 };
 
@@ -52,6 +24,7 @@ function fmtDate(iso) {
 const PAGE_SIZE = 25;
 
 export default function History() {
+  const router = useRouter();
   const [profiles, setProfiles]     = useState([]);
   const [items, setItems]           = useState([]);
   const [total, setTotal]           = useState(0);
@@ -133,9 +106,6 @@ export default function History() {
     setTimeout(() => load(true), 0);
   };
 
-  const page = Math.floor(offset / PAGE_SIZE) + 1;
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
   return (
     <>
       <style jsx global>{`
@@ -152,52 +122,18 @@ export default function History() {
         .field:focus { border-color:rgba(139,92,246,0.55)!important; box-shadow:0 0 0 3px rgba(139,92,246,0.12)!important; }
       `}</style>
 
-      <div style={{ display:"flex", height:"100vh", background:"#0c0a1e" }}>
-
-        <aside style={{
-          width:"220px", flexShrink:0,
-          background:"#08061a",
-          borderRight:"1px solid rgba(139,92,246,0.1)",
-          display:"flex", flexDirection:"column",
-          padding:"22px 14px",
-        }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"32px", paddingLeft:"2px" }}>
-            <Logo />
-            <div>
-              <div style={{ fontSize:"15px", fontWeight:"700", color:"#f1f5f9", letterSpacing:"-0.2px" }}>Super Team</div>
-              <div style={{ fontSize:"9.5px", fontWeight:"600", color:"#7c3aed", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"1px" }}>Resume Studio</div>
-            </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Workspace</div>
-            <NavLink icon="⚡" label="Generate"  href="/"          active={false} />
-            <NavLink icon="👤" label="Profiles"  href="/profiles"  active={false} />
-            <NavLink icon="🗂" label="History"   href="/history"   active={true}  />
-            <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
-            {isAdmin() && (
-              <>
-                <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-                <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
-                <NavLink icon="👥" label="Users" href="/admin" active={false} />
-              </>
-            )}
-          </div>
-          <div style={{ paddingLeft:"2px" }}>
-            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{getUser()?.email || ""}</div>
-            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0, marginBottom:"6px" }}>Sign out →</button>
-            <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
-          </div>
-        </aside>
+      <div style={{ display:"flex", height:"100vh", background:"var(--bg)" }}>
+        <Sidebar active="history" />
 
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
           <header style={{
             padding:"0 28px", height:"56px", flexShrink:0,
-            background:"rgba(8,6,26,0.6)", backdropFilter:"blur(12px)",
+            background:"var(--topbar-bg)", backdropFilter:"blur(12px)",
             borderBottom:"1px solid rgba(139,92,246,0.08)",
             display:"flex", alignItems:"center", justifyContent:"space-between",
           }}>
             <div>
-              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9" }}>Resume History</h1>
+              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)" }}>Resume History</h1>
               <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"1px" }}>{total.toLocaleString()} generations · search and filter</p>
             </div>
             <button
@@ -218,22 +154,22 @@ export default function History() {
               alignItems:"end", marginBottom:"18px",
             }}>
               <div>
-                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Search</label>
+                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Search</label>
                 <input className="field" value={q} onChange={e => setQ(e.target.value)} placeholder="Job title, company, profile, template…" style={fieldBase} />
               </div>
               <div>
-                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Profile</label>
+                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Profile</label>
                 <select className="field" value={profileId} onChange={e => setProfileId(e.target.value)} style={fieldBase}>
                   <option value="">All profiles</option>
                   {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>From</label>
+                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>From</label>
                 <input className="field" type="date" value={from} onChange={e => setFrom(e.target.value)} style={fieldBase} />
               </div>
               <div>
-                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>To</label>
+                <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>To</label>
                 <input className="field" type="date" value={to} onChange={e => setTo(e.target.value)} style={fieldBase} />
               </div>
               <button type="submit" style={{
@@ -261,27 +197,27 @@ export default function History() {
               <div style={{ overflowX:"auto" }}>
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
                   <thead>
-                    <tr style={{ background:"rgba(139,92,246,0.07)", color:"#7c6fcd", textAlign:"left" }}>
-                      {["Date", "Profile", "Job Title", "Company", "Template", "Job Link", "Files"].map(h => (
+                    <tr style={{ background:"rgba(139,92,246,0.07)", color:"var(--label)", textAlign:"left" }}>
+                      {["Date", "Profile", "Job Title", "Company", "Template", "Job Link", "Files", "Interviews"].map(h => (
                         <th key={h} style={{ padding:"11px 14px", fontSize:"10.5px", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.6px", borderBottom:"1px solid rgba(139,92,246,0.1)" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {loading && items.length === 0 && (
-                      <tr><td colSpan={7} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>Loading…</td></tr>
+                      <tr><td colSpan={8} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>Loading…</td></tr>
                     )}
                     {!loading && items.length === 0 && (
-                      <tr><td colSpan={7} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>No generations yet. Generate a tailored resume to see it listed here.</td></tr>
+                      <tr><td colSpan={8} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>No generations yet. Generate a tailored resume to see it listed here.</td></tr>
                     )}
                     {items.map((it) => (
                       <tr key={it.id} style={{ borderBottom:"1px solid rgba(139,92,246,0.06)" }}>
-                        <td style={{ padding:"10px 14px", color:"#cbd5e1", whiteSpace:"nowrap" }}>{fmtDate(it.createdAt)}</td>
-                        <td style={{ padding:"10px 14px", color:"#e2e8f0" }}>{it.profileName || "—"}</td>
-                        <td style={{ padding:"10px 14px", color:"#e2e8f0" }}>{it.jobTitle || "—"}</td>
-                        <td style={{ padding:"10px 14px", color:"#94a3b8" }}>{it.companyName || "—"}</td>
-                        <td style={{ padding:"10px 14px", color:"#94a3b8" }}>{it.template || "—"}</td>
-                        <td style={{ padding:"10px 14px", color:"#94a3b8", maxWidth:"180px" }}>
+                        <td style={{ padding:"10px 14px", color:"var(--text-2)", whiteSpace:"nowrap" }}>{fmtDate(it.createdAt)}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text)" }}>{it.profileName || "—"}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text)" }}>{it.jobTitle || "—"}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text-muted)" }}>{it.companyName || "—"}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text-muted)" }}>{it.template || "—"}</td>
+                        <td style={{ padding:"10px 14px", color:"var(--text-muted)", maxWidth:"180px" }}>
                           {it.jobUrl
                             ? <a href={it.jobUrl} target="_blank" rel="noopener noreferrer" style={{ color:"#a78bfa", textDecoration:"none", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", display:"inline-block", maxWidth:"170px", verticalAlign:"middle" }}>{it.jobUrl}</a>
                             : "—"}
@@ -293,7 +229,7 @@ export default function History() {
                             style={{
                               padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
                               background:"rgba(139,92,246,0.18)", border:"1px solid rgba(139,92,246,0.3)",
-                              borderRadius:"7px", color:"#c4b5fd", cursor:"pointer", marginRight:"6px",
+                              borderRadius:"7px", color:"var(--accent-2)", cursor:"pointer", marginRight:"6px",
                             }}
                           >{busyId === `${it.id}:resume` ? "…" : "Resume"}</button>
                           {it.hasCv && (
@@ -308,6 +244,9 @@ export default function History() {
                             >{busyId === `${it.id}:cv` ? "…" : "CV"}</button>
                           )}
                         </td>
+                        <td style={{ padding:"10px 14px", maxWidth:"240px" }}>
+                          <InterviewBadges interviews={it.interviews} onClick={() => router.push("/interviews")} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -316,33 +255,104 @@ export default function History() {
             </div>
 
             {total > PAGE_SIZE && (
-              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginTop:"14px", color:"#6b7280", fontSize:"12px" }}>
-                <div>Page {page} of {totalPages} · {total.toLocaleString()} total</div>
-                <div style={{ display:"flex", gap:"6px" }}>
-                  <button
-                    onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                    disabled={offset === 0}
-                    style={{
-                      padding:"7px 14px", fontSize:"12px", fontWeight:"600",
-                      background:"rgba(139,92,246,0.08)", border:"1px solid rgba(139,92,246,0.2)",
-                      borderRadius:"7px", color: offset === 0 ? "#4b5563" : "#a78bfa", cursor: offset === 0 ? "not-allowed" : "pointer",
-                    }}
-                  >← Prev</button>
-                  <button
-                    onClick={() => setOffset(offset + PAGE_SIZE)}
-                    disabled={offset + PAGE_SIZE >= total}
-                    style={{
-                      padding:"7px 14px", fontSize:"12px", fontWeight:"600",
-                      background:"rgba(139,92,246,0.08)", border:"1px solid rgba(139,92,246,0.2)",
-                      borderRadius:"7px", color: offset + PAGE_SIZE >= total ? "#4b5563" : "#a78bfa", cursor: offset + PAGE_SIZE >= total ? "not-allowed" : "pointer",
-                    }}
-                  >Next →</button>
-                </div>
-              </div>
+              <Pager total={total} pageSize={PAGE_SIZE} offset={offset} setOffset={setOffset} />
             )}
           </div>
         </div>
       </div>
     </>
+  );
+}
+
+function InterviewBadges({ interviews, onClick }) {
+  if (!interviews || interviews.length === 0) {
+    return <span style={{ fontSize:"11.5px", color:"var(--text-faint)" }}>—</span>;
+  }
+  return (
+    <div style={{ display:"flex", flexWrap:"wrap", gap:"4px" }}>
+      {interviews.map((iv) => {
+        // Color by result if known, else by status.
+        const meta = iv.result && iv.result !== "pending" ? resultMeta(iv.result) : statusMeta(iv.status);
+        const t = typeLabel(iv.type);
+        // Compact label: "HR · Passed" or "HR · Scheduled"
+        const sub = iv.result && iv.result !== "pending" ? resultMeta(iv.result).label : statusMeta(iv.status).label;
+        return (
+          <span
+            key={iv.id}
+            onClick={onClick}
+            title={`${t} (round ${iv.round}) — ${sub} · ${new Date(iv.scheduledAt).toLocaleString()}`}
+            style={{
+              fontSize:"11px", fontWeight:"600",
+              padding:"3px 7px", borderRadius:"6px",
+              color: meta.color, background:`${meta.color}1a`, border:`1px solid ${meta.color}40`,
+              cursor:"pointer", whiteSpace:"nowrap",
+            }}
+          >{t} · {sub}</span>
+        );
+      })}
+    </div>
+  );
+}
+
+function Pager({ total, pageSize, offset, setOffset }) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const page = Math.floor(offset / pageSize) + 1;
+  const goto = (p) => setOffset(Math.max(0, Math.min(totalPages - 1, p - 1)) * pageSize);
+
+  // Build a windowed page list: 1, …, p-2, p-1, p, p+1, p+2, …, totalPages.
+  const pages = [];
+  const push = (n) => pages.push(n);
+  const window = 2;
+  push(1);
+  if (page - window > 2) push("…l");
+  for (let i = Math.max(2, page - window); i <= Math.min(totalPages - 1, page + window); i++) push(i);
+  if (page + window < totalPages - 1) push("…r");
+  if (totalPages > 1) push(totalPages);
+
+  const btn = (active) => ({
+    minWidth:"32px", padding:"6px 10px", fontSize:"12px", fontWeight:"600",
+    background: active ? "var(--accent-soft)" : "var(--surface-2)",
+    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+    borderRadius:"7px",
+    color: active ? "var(--accent-2)" : "var(--accent)",
+    cursor:"pointer",
+  });
+
+  const [jump, setJump] = useState("");
+
+  return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:"12px", marginTop:"14px", color:"var(--text-muted)", fontSize:"12px", flexWrap:"wrap" }}>
+      <div>Page <strong style={{ color:"var(--text-2)" }}>{page}</strong> of {totalPages} · {total.toLocaleString()} total</div>
+      <div style={{ display:"flex", gap:"4px", alignItems:"center", flexWrap:"wrap" }}>
+        <button onClick={() => goto(page - 1)} disabled={page === 1} style={{ ...btn(false), opacity: page === 1 ? 0.4 : 1, cursor: page === 1 ? "not-allowed" : "pointer" }}>← Prev</button>
+        {pages.map((p, i) =>
+          typeof p === "number"
+            ? <button key={i} onClick={() => goto(p)} style={btn(p === page)}>{p}</button>
+            : <span key={i} style={{ color:"var(--text-faint)", padding:"0 4px" }}>…</span>
+        )}
+        <button onClick={() => goto(page + 1)} disabled={page === totalPages} style={{ ...btn(false), opacity: page === totalPages ? 0.4 : 1, cursor: page === totalPages ? "not-allowed" : "pointer" }}>Next →</button>
+
+        <span style={{ marginLeft:"10px", color:"var(--text-faint)" }}>Go to</span>
+        <input
+          type="number"
+          min="1"
+          max={totalPages}
+          value={jump}
+          onChange={e => setJump(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === "Enter") {
+              const n = parseInt(jump, 10);
+              if (Number.isFinite(n)) { goto(n); setJump(""); }
+            }
+          }}
+          placeholder="#"
+          style={{
+            width:"60px", padding:"5px 8px", fontSize:"12px",
+            background:"var(--field-bg)", border:"1px solid var(--border)",
+            borderRadius:"6px", color:"var(--text)", outline:"none",
+          }}
+        />
+      </div>
+    </div>
   );
 }

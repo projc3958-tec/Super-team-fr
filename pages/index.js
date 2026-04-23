@@ -1,41 +1,11 @@
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { API, apiGet, apiFetch, getUser, isAdmin, logout } from "../lib/api";
-
-const Logo = () => (
-  <svg width="38" height="38" viewBox="0 0 38 38" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="38" height="38" rx="11" fill="url(#lg)"/>
-    <path d="M21.5 6L12 21h7l-2.5 11 10-15h-7L21.5 6z" fill="white" fillOpacity="0.95"/>
-    <defs>
-      <linearGradient id="lg" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#8b5cf6"/>
-        <stop offset="1" stopColor="#db2777"/>
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-function NavLink({ icon, label, href, active }) {
-  return (
-    <Link href={href} style={{
-      display: "flex", alignItems: "center", gap: "10px",
-      padding: "9px 12px", borderRadius: "9px", textDecoration: "none",
-      fontSize: "13.5px", fontWeight: active ? "600" : "500",
-      color: active ? "#e2d9ff" : "#6b7280",
-      background: active ? "rgba(139,92,246,0.18)" : "transparent",
-      border: `1px solid ${active ? "rgba(139,92,246,0.25)" : "transparent"}`,
-      transition: "all 0.15s",
-    }}>
-      <span style={{ fontSize: "15px", opacity: active ? 1 : 0.7 }}>{icon}</span>
-      {label}
-    </Link>
-  );
-}
+import Sidebar from "../components/Sidebar";
+import { API, apiGet, apiFetch } from "../lib/api";
 
 function FieldLabel({ children, hint }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "6px" }}>
-      <label style={{ fontSize: "11px", fontWeight: "700", color: "#7c6fcd", textTransform: "uppercase", letterSpacing: "0.7px" }}>
+      <label style={{ fontSize: "11px", fontWeight: "700", color: "var(--label)", textTransform: "uppercase", letterSpacing: "0.7px" }}>
         {children}
       </label>
       {hint && <span style={{ fontSize: "11px", color: "#4a5568" }}>{hint}</span>}
@@ -45,8 +15,8 @@ function FieldLabel({ children, hint }) {
 
 const fieldBase = {
   width: "100%", padding: "10px 13px", fontSize: "13.5px",
-  background: "rgba(12,10,30,0.7)", border: "1px solid rgba(139,92,246,0.18)",
-  borderRadius: "9px", outline: "none", color: "#e2e8f0",
+  background: "var(--field-bg)", border: "1px solid rgba(139,92,246,0.18)",
+  borderRadius: "9px", outline: "none", color: "var(--text)",
   transition: "border-color 0.2s, box-shadow 0.2s", fontFamily: "inherit",
 };
 
@@ -613,51 +583,10 @@ export default function Home() {
         .nav-link:hover { background:rgba(139,92,246,0.1)!important; color:#c4b5fd!important; }
       `}</style>
 
-      <div style={{ display:"flex", height:"100vh", background:"#0c0a1e" }}>
+      <div style={{ display:"flex", height:"100vh", background:"var(--bg)" }}>
 
         {/* ──────────── SIDEBAR ──────────── */}
-        <aside style={{
-          width:"220px", flexShrink:0,
-          background:"#08061a",
-          borderRight:"1px solid rgba(139,92,246,0.1)",
-          display:"flex", flexDirection:"column",
-          padding:"22px 14px",
-        }}>
-          {/* Branding */}
-          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"32px", paddingLeft:"2px" }}>
-            <Logo />
-            <div>
-              <div style={{ fontSize:"15px", fontWeight:"700", color:"#f1f5f9", letterSpacing:"-0.2px" }}>Super Team</div>
-              <div style={{ fontSize:"9.5px", fontWeight:"600", color:"#7c3aed", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"1px" }}>Resume Studio</div>
-            </div>
-          </div>
-
-          {/* Nav */}
-          <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>
-              Workspace
-            </div>
-            <NavLink icon="⚡" label="Generate"  href="/"          active={true}  />
-            <NavLink icon="👤" label="Profiles"  href="/profiles"  active={false} />
-            <NavLink icon="🗂" label="History"   href="/history"   active={false} />
-            <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
-
-            {isAdmin() && (
-              <>
-                <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-                <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
-                <NavLink icon="👥" label="Users" href="/admin" active={false} />
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div style={{ paddingLeft:"2px" }}>
-            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{getUser()?.email || ""}</div>
-            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0, marginBottom:"6px" }}>Sign out →</button>
-            <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
-          </div>
-        </aside>
+        <Sidebar active="generate" />
 
         {/* ──────────── MAIN ──────────── */}
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
@@ -665,12 +594,12 @@ export default function Home() {
           {/* Top bar */}
           <header style={{
             padding:"0 28px", height:"56px", flexShrink:0,
-            background:"rgba(8,6,26,0.6)", backdropFilter:"blur(12px)",
+            background:"var(--topbar-bg)", backdropFilter:"blur(12px)",
             borderBottom:"1px solid rgba(139,92,246,0.08)",
             display:"flex", alignItems:"center", justifyContent:"space-between",
           }}>
             <div>
-              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9" }}>Generate Tailored Resume</h1>
+              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)" }}>Generate Tailored Resume</h1>
               <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"1px" }}>AI-powered · ATS-optimized · PDF output</p>
             </div>
             <div style={{ display:"flex", gap:"8px" }}>
@@ -701,7 +630,7 @@ export default function Home() {
               {/* Profile */}
               <div>
                 <FieldLabel>Profile</FieldLabel>
-                <select className="field" value={selectedProfile} onChange={e => setSelectedProfile(e.target.value)} style={{ ...fieldBase, color: selectedProfile ? "#e2e8f0" : "#6b7280" }}>
+                <select className="field" value={selectedProfile} onChange={e => setSelectedProfile(e.target.value)} style={{ ...fieldBase, color: selectedProfile ? "var(--text)" : "#6b7280" }}>
                   <option value="">Choose a profile…</option>
                   {profiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
@@ -730,7 +659,7 @@ export default function Home() {
                       padding:"0 14px", fontSize:"12.5px", fontWeight:"600",
                       background: (scraping || !jobUrl.trim()) ? "rgba(139,92,246,0.08)" : "rgba(139,92,246,0.18)",
                       border:"1px solid rgba(139,92,246,0.3)", borderRadius:"9px",
-                      color: (scraping || !jobUrl.trim()) ? "#6b7280" : "#c4b5fd",
+                      color: (scraping || !jobUrl.trim()) ? "#6b7280" : "var(--accent-2)",
                       cursor: (scraping || !jobUrl.trim()) ? "not-allowed" : "pointer",
                       whiteSpace:"nowrap",
                     }}
@@ -778,7 +707,7 @@ export default function Home() {
                   style={{
                     width:"100%", padding:"11px 14px", background:"transparent", border:"none",
                     display:"flex", alignItems:"center", justifyContent:"space-between",
-                    cursor:"pointer", color:"#c4b5fd", fontSize:"12px", fontWeight:"700",
+                    cursor:"pointer", color:"var(--accent-2)", fontSize:"12px", fontWeight:"700",
                     textTransform:"uppercase", letterSpacing:"0.7px",
                   }}
                 >
@@ -786,7 +715,7 @@ export default function Home() {
                     <span style={{ fontSize:"14px" }}>🎨</span>
                     Style {styleCount > 0 && <span style={{ fontSize:"10px", fontWeight:"600", color:"#a78bfa", background:"rgba(139,92,246,0.15)", padding:"2px 7px", borderRadius:"6px", textTransform:"none", letterSpacing:"0" }}>{randomize ? "random" : `${styleCount} set`}</span>}
                   </span>
-                  <span style={{ fontSize:"11px", color:"#7c6fcd", transform: styleOpen ? "rotate(90deg)" : "rotate(0deg)", transition:"transform 0.15s" }}>▶</span>
+                  <span style={{ fontSize:"11px", color:"var(--label)", transform: styleOpen ? "rotate(90deg)" : "rotate(0deg)", transition:"transform 0.15s" }}>▶</span>
                 </button>
 
                 {styleOpen && (
@@ -808,7 +737,7 @@ export default function Home() {
                     <div style={{ display:"grid", gridTemplateColumns:"1fr", gap:"8px", opacity: randomize ? 0.45 : 1, pointerEvents: randomize ? "none" : "auto", maxHeight:"52vh", overflowY:"auto", paddingRight:"6px" }}>
                       {STYLE_DIMENSION_META.map(({ key, label }) => (
                         <div key={key}>
-                          <label style={{ display:"block", fontSize:"10px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"3px" }}>{label}</label>
+                          <label style={{ display:"block", fontSize:"10px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"3px" }}>{label}</label>
                           <select
                             className="field"
                             value={style[key]}
@@ -848,7 +777,7 @@ export default function Home() {
                   }}>
                     <div style={{ fontSize:"15px", marginBottom:"3px" }}>{icon}</div>
                     <div style={{ fontSize:"10px", color:"#6b7280" }}>{label}</div>
-                    <div style={{ fontSize:"12px", fontWeight:"600", color:"#c4b5fd", marginTop:"1px" }}>{val}</div>
+                    <div style={{ fontSize:"12px", fontWeight:"600", color:"var(--accent-2)", marginTop:"1px" }}>{val}</div>
                   </div>
                 ))}
               </div>

@@ -17,8 +17,8 @@ const Logo = () => (
 
 const fieldBase = {
   width: "100%", padding: "12px 14px", fontSize: "14px",
-  background: "rgba(12,10,30,0.7)", border: "1px solid rgba(139,92,246,0.18)",
-  borderRadius: "10px", outline: "none", color: "#e2e8f0",
+  background: "var(--field-bg)", border: "1px solid rgba(139,92,246,0.18)",
+  borderRadius: "10px", outline: "none", color: "var(--text)",
   transition: "border-color 0.2s, box-shadow 0.2s", fontFamily: "inherit",
 };
 
@@ -69,8 +69,7 @@ export default function Login() {
 
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:"22px" }}>
             <Logo />
-            <h1 style={{ fontSize:"20px", fontWeight:"700", color:"#f1f5f9", marginTop:"14px", letterSpacing:"-0.3px" }}>Super Team</h1>
-            <p style={{ fontSize:"12px", color:"#7c6fcd", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"3px", fontWeight:"600" }}>Resume Studio</p>
+            <h1 style={{ fontSize:"20px", fontWeight:"700", color:"var(--text)", marginTop:"14px", letterSpacing:"-0.3px" }}>Super Job Studio</h1>
           </div>
 
           <form onSubmit={onSubmit} style={{
@@ -80,11 +79,11 @@ export default function Login() {
             padding:"26px 26px 22px",
             backdropFilter:"blur(10px)",
           }}>
-            <h2 style={{ fontSize:"15px", fontWeight:"700", color:"#e2d9ff", marginBottom:"4px" }}>Sign in</h2>
+            <h2 style={{ fontSize:"15px", fontWeight:"700", color:"var(--accent-2)", marginBottom:"4px" }}>Sign in</h2>
             <p style={{ fontSize:"12px", color:"#6b7280", marginBottom:"18px" }}>Use the credentials provided by your administrator.</p>
 
             <div style={{ marginBottom:"12px" }}>
-              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"6px" }}>Email</label>
+              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"6px" }}>Email</label>
               <input
                 className="field"
                 type="email"
@@ -98,7 +97,7 @@ export default function Login() {
             </div>
 
             <div style={{ marginBottom:"14px" }}>
-              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"6px" }}>Password</label>
+              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"6px" }}>Password</label>
               <div style={{ position:"relative" }}>
                 <input
                   className="field"
@@ -115,7 +114,7 @@ export default function Login() {
                   style={{
                     position:"absolute", right:"6px", top:"50%", transform:"translateY(-50%)",
                     padding:"5px 10px", fontSize:"11px", fontWeight:"600",
-                    background:"transparent", border:"none", color:"#7c6fcd", cursor:"pointer",
+                    background:"transparent", border:"none", color:"var(--label)", cursor:"pointer",
                   }}
                 >{show ? "Hide" : "Show"}</button>
               </div>
@@ -150,7 +149,7 @@ export default function Login() {
           </form>
 
           <div style={{ textAlign:"center", marginTop:"16px", fontSize:"10.5px", color:"#374151" }}>
-            Super Team v1.0.0
+            Super Job Studio v1.0.0
           </div>
         </div>
       </div>

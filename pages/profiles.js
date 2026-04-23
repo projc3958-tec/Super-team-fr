@@ -1,36 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import { apiGet, apiPost, apiPut, apiDelete, getUser, isAdmin, logout } from "../lib/api";
-
-// ─── Logo / Nav (same as other pages) ────────────────────────────────────────
-const Logo = () => (
-  <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
-    <rect width="38" height="38" rx="11" fill="url(#plg)"/>
-    <path d="M21.5 6L12 21h7l-2.5 11 10-15h-7L21.5 6z" fill="white" fillOpacity="0.95"/>
-    <defs>
-      <linearGradient id="plg" x1="0" y1="0" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-        <stop stopColor="#8b5cf6"/><stop offset="1" stopColor="#db2777"/>
-      </linearGradient>
-    </defs>
-  </svg>
-);
-
-function NavLink({ icon, label, href, active }) {
-  return (
-    <Link href={href} className="nav-link" style={{
-      display:"flex", alignItems:"center", gap:"10px",
-      padding:"9px 12px", borderRadius:"9px", textDecoration:"none",
-      fontSize:"13.5px", fontWeight: active ? "600" : "500",
-      color: active ? "#e2d9ff" : "#6b7280",
-      background: active ? "rgba(139,92,246,0.18)" : "transparent",
-      border:`1px solid ${active ? "rgba(139,92,246,0.25)" : "transparent"}`,
-      transition:"all 0.15s",
-    }}>
-      <span style={{ fontSize:"15px", opacity: active ? 1 : 0.7 }}>{icon}</span>
-      {label}
-    </Link>
-  );
-}
+import Sidebar from "../components/Sidebar";
+import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
 
 // ─── Empty profile skeleton ───────────────────────────────────────────────────
 const emptyProfile = () => ({
@@ -62,8 +32,8 @@ function fromApiProfile(data) {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 const inp = {
   width:"100%", padding:"9px 12px", fontSize:"13px",
-  background:"rgba(12,10,30,0.7)", border:"1px solid rgba(139,92,246,0.18)",
-  borderRadius:"8px", outline:"none", color:"#e2e8f0",
+  background:"var(--field-bg)", border:"1px solid rgba(139,92,246,0.18)",
+  borderRadius:"8px", outline:"none", color:"var(--text)",
   transition:"border-color 0.2s", fontFamily:"inherit",
 };
 const Inp = (props) => <input {...props} className="finp" style={{ ...inp, ...props.style }} />;
@@ -72,7 +42,7 @@ const Txt = (props) => <textarea {...props} className="finp" style={{ ...inp, re
 function FieldRow({ label, children }) {
   return (
     <div style={{ marginBottom:"12px" }}>
-      <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"#7c6fcd", textTransform:"uppercase", letterSpacing:"0.7px", marginBottom:"5px" }}>{label}</label>
+      <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.7px", marginBottom:"5px" }}>{label}</label>
       {children}
     </div>
   );
@@ -86,7 +56,7 @@ function SectionHeader({ title, icon, onAdd, addLabel }) {
         <span style={{ fontSize:"12px", fontWeight:"700", color:"#a78bfa", textTransform:"uppercase", letterSpacing:"0.8px" }}>{title}</span>
       </div>
       {onAdd && (
-        <button onClick={onAdd} style={{ padding:"4px 12px", fontSize:"12px", fontWeight:"600", background:"rgba(139,92,246,0.12)", border:"1px solid rgba(139,92,246,0.25)", borderRadius:"6px", color:"#c4b5fd", cursor:"pointer" }}>
+        <button onClick={onAdd} style={{ padding:"4px 12px", fontSize:"12px", fontWeight:"600", background:"rgba(139,92,246,0.12)", border:"1px solid rgba(139,92,246,0.25)", borderRadius:"6px", color:"var(--accent-2)", cursor:"pointer" }}>
           + {addLabel}
         </button>
       )}
@@ -99,7 +69,7 @@ function ExpItem({ exp, idx, onChange, onRemove }) {
   return (
     <div style={{ background:"rgba(139,92,246,0.05)", border:"1px solid rgba(139,92,246,0.1)", borderRadius:"10px", padding:"14px", marginBottom:"10px" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
-        <span style={{ fontSize:"12px", color:"#7c6fcd", fontWeight:"600" }}>Experience #{idx + 1}</span>
+        <span style={{ fontSize:"12px", color:"var(--label)", fontWeight:"600" }}>Experience #{idx + 1}</span>
         <button onClick={() => onRemove(idx)} style={{ fontSize:"11px", color:"#f87171", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:"5px", padding:"3px 9px", cursor:"pointer" }}>Remove</button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
@@ -120,7 +90,7 @@ function EduItem({ edu, idx, onChange, onRemove }) {
   return (
     <div style={{ background:"rgba(139,92,246,0.05)", border:"1px solid rgba(139,92,246,0.1)", borderRadius:"10px", padding:"14px", marginBottom:"10px" }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"10px" }}>
-        <span style={{ fontSize:"12px", color:"#7c6fcd", fontWeight:"600" }}>Education #{idx + 1}</span>
+        <span style={{ fontSize:"12px", color:"var(--label)", fontWeight:"600" }}>Education #{idx + 1}</span>
         <button onClick={() => onRemove(idx)} style={{ fontSize:"11px", color:"#f87171", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.15)", borderRadius:"5px", padding:"3px 9px", cursor:"pointer" }}>Remove</button>
       </div>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
@@ -163,7 +133,7 @@ function ProfileEditor({ form, setForm, saving, onSave, onDelete, isNew }) {
       {/* Editor header */}
       <div style={{ padding:"18px 24px", borderBottom:"1px solid rgba(139,92,246,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
         <div>
-          <h2 style={{ fontSize:"15px", fontWeight:"700", color:"#e2d9ff" }}>{isNew ? "New Profile" : `Editing: ${form.name || "Untitled"}`}</h2>
+          <h2 style={{ fontSize:"15px", fontWeight:"700", color:"var(--accent-2)" }}>{isNew ? "New Profile" : `Editing: ${form.name || "Untitled"}`}</h2>
           <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"2px" }}>Fill in your resume details</p>
         </div>
         <div style={{ display:"flex", gap:"8px" }}>
@@ -178,7 +148,7 @@ function ProfileEditor({ form, setForm, saving, onSave, onDelete, isNew }) {
             style={{
               padding:"8px 20px", fontSize:"13px", fontWeight:"700",
               background: saving || !form.name.trim() ? "rgba(139,92,246,0.1)" : "linear-gradient(135deg,#7c3aed,#db2777)",
-              border:"none", borderRadius:"8px", color: saving || !form.name.trim() ? "#7c6fcd" : "#fff",
+              border:"none", borderRadius:"8px", color: saving || !form.name.trim() ? "var(--label)" : "#fff",
               cursor: saving || !form.name.trim() ? "not-allowed" : "pointer",
               boxShadow: saving || !form.name.trim() ? "none" : "0 2px 12px rgba(139,92,246,0.35)",
             }}
@@ -250,7 +220,7 @@ function ProfileCard({ profile, active, onClick }) {
           fontSize:"13px", fontWeight:"700", color:"#fff",
         }}>{initials}</div>
         <div style={{ minWidth:0 }}>
-          <div style={{ fontSize:"13.5px", fontWeight:"600", color: active ? "#e2d9ff" : "#d4d0ea", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profile.name}</div>
+          <div style={{ fontSize:"13.5px", fontWeight:"600", color: active ? "var(--accent-2)" : "#d4d0ea", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profile.name}</div>
           {profile.title && <div style={{ fontSize:"11.5px", color:"#6b7280", marginTop:"1px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{profile.title}</div>}
         </div>
       </div>
@@ -374,52 +344,25 @@ export default function ProfilesPage() {
           padding:"12px 18px", borderRadius:"10px", fontSize:"13px", fontWeight:"600",
           background: toast.type === "error" ? "rgba(239,68,68,0.15)" : "rgba(139,92,246,0.15)",
           border:`1px solid ${toast.type === "error" ? "rgba(239,68,68,0.3)" : "rgba(139,92,246,0.3)"}`,
-          color: toast.type === "error" ? "#f87171" : "#c4b5fd",
+          color: toast.type === "error" ? "#f87171" : "var(--accent-2)",
           backdropFilter:"blur(12px)",
         }}>
           {toast.type === "error" ? "✗" : "✓"} {toast.msg}
         </div>
       )}
 
-      <div style={{ display:"flex", height:"100vh", background:"#0c0a1e" }}>
+      <div style={{ display:"flex", height:"100vh", background:"var(--bg)" }}>
 
         {/* ── SIDEBAR ── */}
-        <aside style={{ width:"220px", flexShrink:0, background:"#08061a", borderRight:"1px solid rgba(139,92,246,0.1)", display:"flex", flexDirection:"column", padding:"22px 14px" }}>
-          <div style={{ display:"flex", alignItems:"center", gap:"10px", marginBottom:"32px", paddingLeft:"2px" }}>
-            <Logo />
-            <div>
-              <div style={{ fontSize:"15px", fontWeight:"700", color:"#f1f5f9", letterSpacing:"-0.2px" }}>Super Team</div>
-              <div style={{ fontSize:"9.5px", fontWeight:"600", color:"#7c3aed", letterSpacing:"1.2px", textTransform:"uppercase", marginTop:"1px" }}>Resume Studio</div>
-            </div>
-          </div>
-          <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
-            <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Workspace</div>
-            <NavLink icon="⚡" label="Generate"  href="/"          active={false} />
-            <NavLink icon="👤" label="Profiles"  href="/profiles"  active={true}  />
-            <NavLink icon="🗂" label="History"   href="/history"   active={false} />
-            <NavLink icon="📊" label="Dashboard" href="/dashboard" active={false} />
-            {isAdmin() && (
-              <>
-                <div style={{ height:"1px", background:"rgba(139,92,246,0.08)", margin:"14px 0 10px" }} />
-                <div style={{ fontSize:"10px", fontWeight:"600", color:"#374151", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Admin</div>
-                <NavLink icon="👥" label="Users" href="/admin" active={false} />
-              </>
-            )}
-          </div>
-          <div style={{ paddingLeft:"2px" }}>
-            <div style={{ fontSize:"11px", color:"#7c6fcd", marginBottom:"4px", fontWeight:"600", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{getUser()?.email || ""}</div>
-            <button onClick={logout} style={{ fontSize:"11px", color:"#f87171", background:"transparent", border:"none", cursor:"pointer", padding:0, marginBottom:"6px" }}>Sign out →</button>
-            <div style={{ fontSize:"10px", color:"#374151" }}>Super Team v1.0.0</div>
-          </div>
-        </aside>
+        <Sidebar active="profiles" />
 
         {/* ── MAIN ── */}
         <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", minWidth:0 }}>
 
           {/* Top bar */}
-          <header style={{ padding:"0 28px", height:"56px", flexShrink:0, background:"rgba(8,6,26,0.6)", backdropFilter:"blur(12px)", borderBottom:"1px solid rgba(139,92,246,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <header style={{ padding:"0 28px", height:"56px", flexShrink:0, background:"var(--topbar-bg)", backdropFilter:"blur(12px)", borderBottom:"1px solid rgba(139,92,246,0.08)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
             <div>
-              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9" }}>My Profiles</h1>
+              <h1 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)" }}>My Profiles</h1>
               <p style={{ fontSize:"11px", color:"#4b5563", marginTop:"1px" }}>Create and manage your resume profiles</p>
             </div>
             <button onClick={startNew} style={{ padding:"8px 18px", fontSize:"13px", fontWeight:"700", background:"linear-gradient(135deg,#7c3aed,#db2777)", border:"none", borderRadius:"9px", color:"#fff", cursor:"pointer", boxShadow:"0 2px 12px rgba(139,92,246,0.35)" }}>
@@ -454,8 +397,8 @@ export default function ProfilesPage() {
                     <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%" }}>
                       <div style={{ background:"rgba(17,10,40,0.95)", border:"1px solid rgba(239,68,68,0.25)", borderRadius:"16px", padding:"36px 40px", textAlign:"center", maxWidth:"380px" }}>
                         <div style={{ fontSize:"28px", marginBottom:"12px" }}>⚠️</div>
-                        <h3 style={{ fontSize:"16px", fontWeight:"700", color:"#f1f5f9", marginBottom:"8px" }}>Delete Profile?</h3>
-                        <p style={{ fontSize:"13px", color:"#6b7280", marginBottom:"24px", lineHeight:"1.6" }}>This will permanently delete <strong style={{ color:"#e2d9ff" }}>{form.name}</strong>. This action cannot be undone.</p>
+                        <h3 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)", marginBottom:"8px" }}>Delete Profile?</h3>
+                        <p style={{ fontSize:"13px", color:"#6b7280", marginBottom:"24px", lineHeight:"1.6" }}>This will permanently delete <strong style={{ color:"var(--accent-2)" }}>{form.name}</strong>. This action cannot be undone.</p>
                         <div style={{ display:"flex", gap:"10px", justifyContent:"center" }}>
                           <button onClick={() => setConfirmDelete(false)} style={{ padding:"9px 20px", fontSize:"13px", fontWeight:"600", background:"rgba(139,92,246,0.08)", border:"1px solid rgba(139,92,246,0.2)", borderRadius:"8px", color:"#a78bfa", cursor:"pointer" }}>Cancel</button>
                           <button onClick={deleteProfile} style={{ padding:"9px 20px", fontSize:"13px", fontWeight:"700", background:"rgba(239,68,68,0.12)", border:"1px solid rgba(239,68,68,0.3)", borderRadius:"8px", color:"#f87171", cursor:"pointer" }}>Yes, Delete</button>

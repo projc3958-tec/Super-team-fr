@@ -1,6 +1,6 @@
-appId: com.resumetailor.app
-productName: Resume Tailor
-copyright: Resume Tailor
+appId: com.superjobstudio.app
+productName: Super Job Studio
+copyright: Super Job Studio
 
 files:
   - electron/**/*
@@ -23,4 +23,4 @@ nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
-  shortcutName: Resume Tailor
+  shortcutName: Super Job Studio
