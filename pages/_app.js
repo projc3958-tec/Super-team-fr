@@ -4,6 +4,7 @@ import Head from "next/head";
 import { isAuthenticated, getUser } from "../lib/api";
 import { applyTheme, getTheme } from "../lib/theme";
 import { notificationsEnabled, start as startNotifications, stop as stopNotifications } from "../lib/notifications";
+import NotificationToasts from "../components/NotificationToasts";
 
 const PUBLIC_PATHS = new Set(["/login"]);
 // Paths a user with role "generate_only" is allowed to visit. Anything else
@@ -151,6 +152,7 @@ export default function App({ Component, pageProps }) {
           color: "var(--accent)",
         }}>Loading…</div>
       )}
+      <NotificationToasts />
     </>
   );
 }

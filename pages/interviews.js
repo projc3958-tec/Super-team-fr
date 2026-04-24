@@ -296,6 +296,7 @@ function Section({ title, items, loading, onEdit, onDelete }) {
                   <div style={{ fontSize:"13px", color:"var(--text)" }}>{it.title || it.jobTitle || "—"}</div>
                   <div style={{ fontSize:"11px", color:"var(--text-muted)", marginTop:"2px" }}>
                     {it.companyName || (it.title && it.jobTitle ? it.jobTitle : "—")}
+                    {it.profileName && <span style={{ color:"var(--accent-2)", marginLeft:"6px", fontWeight:"600" }}>· {it.profileName}</span>}
                     {it.ownerEmail && <span style={{ color:"var(--text-faint)", marginLeft:"6px" }}>· {it.ownerEmail}</span>}
                   </div>
                 </div>

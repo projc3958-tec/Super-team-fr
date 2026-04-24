@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useRouter } from "next/router";
 import Sidebar from "../components/Sidebar";
 import { apiGet, apiPost } from "../lib/api";
 import {
@@ -7,6 +6,8 @@ import {
   typeLabel, statusMeta,
 } from "../lib/interviews";
 import { TIMEZONES, TZ_KEY, partsInTz, ymdInTz, inputInTzToISO } from "../lib/tz";
+import EventDetailsModal from "../components/EventDetailsModal";
+import { colorForUser, initialsFor } from "../lib/userColor";
 
 const fieldBase = {
   width: "100%", padding: "9px 12px", fontSize: "13px",
@@ -47,7 +48,6 @@ function fmtHour12(hour) {
 }
 
 export default function CalendarPage() {
-  const router = useRouter();
   const [viewMode, setViewMode] = useState("week"); // "month" | "week"
   const [cursor, setCursor]     = useState(() => startOfWeek(new Date()));
   const [mine, setMine]         = useState([]);
@@ -55,6 +55,7 @@ export default function CalendarPage() {
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState("");
   const [selectedDay, setSelectedDay] = useState(null);
+  const [selectedInterview, setSelectedInterview] = useState(null);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quickForm, setQuickForm] = useState(null);
   const [saving, setSaving]     = useState(false);
@@ -299,6 +300,7 @@ export default function CalendarPage() {
                 timezone={timezone}
                 nowTick={nowTick}
                 onSelectDay={setSelectedDay}
+                onSelectInterview={setSelectedInterview}
                 onAddAt={openQuickAdd}
               />
             ) : (
@@ -346,34 +348,53 @@ export default function CalendarPage() {
                           )}
                         </div>
                         <div style={{ display:"flex", flexDirection:"column", gap:"2px" }}>
-                          {events.mine.slice(0, 3).map((ev) => (
-                            <div key={ev.id} style={{
-                              fontSize:"10.5px", padding:"2px 5px", borderRadius:"4px",
-                              color:"#fff",
-                              background: TYPE_COLORS[ev.type] || "var(--text-muted)",
-                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                              opacity: ev.status === "cancelled" ? 0.5 : 1,
-                              textDecoration: ev.status === "cancelled" ? "line-through" : "none",
-                            }}
-                            title={ev.title || `${typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}`}
-                            >
-                              {new Date(ev.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: timezone })} · {ev.title || ev.companyName || typeLabel(ev.type)}
-                            </div>
-                          ))}
-                          {events.others.slice(0, 2).map((ev) => (
-                            <div key={ev.id} style={{
-                              fontSize:"10.5px", padding:"2px 5px", borderRadius:"4px",
-                              color:"var(--text-muted)",
-                              background:"var(--surface-3)",
-                              overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
-                              border:"1px dashed var(--border-soft)",
-                            }}
-                            title={`${ev.ownerEmail || "user"} · ${typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}`}
-                            >
-                              <span style={{ display:"inline-block", width:"6px", height:"6px", borderRadius:"50%", background: TYPE_COLORS[ev.type] || "var(--text-muted)", marginRight:"5px" }} />
-                              {new Date(ev.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: timezone })} · {ev.title || ev.companyName || typeLabel(ev.type)}
-                            </div>
-                          ))}
+                          {events.mine.slice(0, 3).map((ev) => {
+                            const ownerKey = ev.ownerEmail || ev.ownerId;
+                            const ownerC = ownerKey ? colorForUser(ownerKey) : null;
+                            return (
+                              <div key={ev.id}
+                                onClick={(e) => { e.stopPropagation(); setSelectedInterview(ev); }}
+                                style={{
+                                  display:"flex", alignItems:"center", gap:"4px",
+                                  fontSize:"10.5px", padding:"2px 5px", borderRadius:"4px",
+                                  color:"#fff",
+                                  background: TYPE_COLORS[ev.type] || "var(--text-muted)",
+                                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                                  opacity: ev.status === "cancelled" ? 0.5 : 1,
+                                  textDecoration: ev.status === "cancelled" ? "line-through" : "none",
+                                  boxShadow: ownerC ? `inset 3px 0 0 ${ownerC}` : undefined,
+                                }}
+                                title={`${ev.ownerEmail ? ev.ownerEmail + " · " : ""}${ev.title || typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}${ev.profileName ? ` (profile: ${ev.profileName})` : ""}`}
+                              >
+                                <span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>
+                                  {new Date(ev.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: timezone })} · {ev.title || ev.companyName || typeLabel(ev.type)}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          {events.others.slice(0, 2).map((ev) => {
+                            const ownerKey = ev.ownerEmail || ev.ownerId || ev.id;
+                            const ownerC = colorForUser(ownerKey);
+                            return (
+                              <div key={ev.id}
+                                onClick={(e) => { e.stopPropagation(); setSelectedInterview(ev); }}
+                                style={{
+                                  display:"flex", alignItems:"center", gap:"4px",
+                                  fontSize:"10.5px", padding:"2px 5px", borderRadius:"4px",
+                                  color:"var(--text-muted)",
+                                  background:"var(--surface-3)",
+                                  overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap",
+                                  border:`1px dashed ${ownerC}`,
+                                }}
+                                title={`${ev.ownerEmail || "user"} · ${typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}`}
+                              >
+                                <span style={{ display:"inline-block", width:"6px", height:"6px", borderRadius:"50%", background: ownerC }} />
+                                <span style={{ overflow:"hidden", textOverflow:"ellipsis" }}>
+                                  {new Date(ev.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", timeZone: timezone })} · {ev.title || ev.companyName || typeLabel(ev.type)}
+                                </span>
+                              </div>
+                            );
+                          })}
                           {(events.mine.length + events.others.length) > 5 && (
                             <div style={{ fontSize:"10px", color:"var(--text-faint)" }}>+{events.mine.length + events.others.length - 5} more</div>
                           )}
@@ -392,7 +413,15 @@ export default function CalendarPage() {
                 timezone={timezone}
                 onClose={() => setSelectedDay(null)}
                 onAdd={() => { setSelectedDay(null); openQuickAdd(new Date(selectedDay)); }}
-                onOpenInterview={() => router.push("/interviews")}
+                onOpenInterview={(iv) => setSelectedInterview(iv)}
+              />
+            )}
+
+            {selectedInterview && (
+              <EventDetailsModal
+                interview={selectedInterview}
+                viewerTz={timezone}
+                onClose={() => setSelectedInterview(null)}
               />
             )}
           </div>
@@ -685,7 +714,7 @@ function TimezoneSelect({ value, onChange }) {
 // absolutely positioned per day column based on their start time + duration
 // in the selected timezone. A horizontal "now" line is drawn across today's
 // column whenever today is in the displayed week.
-function WeekHourGrid({ cells, mine, others, timezone, nowTick, onSelectDay, onAddAt }) {
+function WeekHourGrid({ cells, mine, others, timezone, nowTick, onSelectDay, onSelectInterview, onAddAt }) {
   const HOUR_PX = 36;       // height of one hour row
   const TIME_COL = 56;      // width of the time labels column
   const TOTAL_H = HOUR_PX * 24;
@@ -805,10 +834,13 @@ function WeekHourGrid({ cells, mine, others, timezone, nowTick, onSelectDay, onA
               {own.map((ev) => {
                 const { top, height } = eventTopHeight(ev);
                 const p = partsInTz(new Date(ev.scheduledAt), timezone);
+                const ownerKey = ev.ownerEmail || ev.ownerId;
+                const ownerC = ownerKey ? colorForUser(ownerKey) : null;
+                const ownerInits = ownerKey ? initialsFor(ev.ownerName || ev.ownerEmail || "") : null;
                 return (
                   <div
                     key={ev.id}
-                    onClick={(e) => { e.stopPropagation(); onSelectDay(dayKeys[i]); }}
+                    onClick={(e) => { e.stopPropagation(); onSelectInterview(ev); }}
                     style={{
                       position:"absolute", left:"4px", right:"4px",
                       top: `${top}px`, height: `${height}px`,
@@ -821,36 +853,61 @@ function WeekHourGrid({ cells, mine, others, timezone, nowTick, onSelectDay, onA
                       opacity: ev.status === "cancelled" ? 0.5 : 1,
                       textDecoration: ev.status === "cancelled" ? "line-through" : "none",
                     }}
-                    title={ev.title || `${typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}`}
+                    title={`${ev.ownerEmail ? ev.ownerEmail + " · " : ""}${ev.title || typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}${ev.profileName ? ` (profile: ${ev.profileName})` : ""}`}
                   >
+                    {ownerC && (
+                      <span style={{
+                        position:"absolute", top:"3px", right:"3px",
+                        width:"15px", height:"15px", borderRadius:"50%",
+                        background: ownerC, color:"#fff",
+                        fontSize:"8.5px", fontWeight:"700",
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        border:"1.5px solid rgba(255,255,255,0.35)",
+                      }}>{ownerInits}</span>
+                    )}
                     <div style={{ fontSize:"10px", opacity:0.9 }}>{fmt12h(p.hour, p.minute)}</div>
-                    <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight: ownerC ? "16px" : "0" }}>
                       {ev.title || ev.companyName || typeLabel(ev.type)}
                     </div>
                   </div>
                 );
               })}
 
-              {/* Others' events — slightly translucent dashed pill behind mine */}
+              {/* Others' events — colored by owner with dashed border + corner badge */}
               {oth.map((ev) => {
                 const { top, height } = eventTopHeight(ev);
+                const ownerKey = ev.ownerEmail || ev.ownerId || ev.id;
+                const ownerC = colorForUser(ownerKey);
+                const ownerInits = initialsFor(ev.ownerName || ev.ownerEmail || "user");
                 return (
                   <div
                     key={ev.id}
-                    onClick={(e) => { e.stopPropagation(); onSelectDay(dayKeys[i]); }}
+                    onClick={(e) => { e.stopPropagation(); onSelectInterview(ev); }}
                     style={{
                       position:"absolute", left:"4px", right:"4px",
                       top: `${top}px`, height: `${height}px`,
                       borderRadius:"5px", padding:"3px 6px",
                       background:"var(--surface-3)",
-                      border:`1px dashed ${TYPE_COLORS[ev.type] || "var(--border)"}`,
+                      border:`1px dashed ${ownerC}`,
                       color:"var(--text-muted)", fontSize:"10.5px",
                       overflow:"hidden", textOverflow:"ellipsis",
                       cursor:"pointer",
                     }}
                     title={`${ev.ownerEmail || "user"} · ${typeLabel(ev.type)}${ev.companyName ? ` @ ${ev.companyName}` : ""}`}
                   >
-                    {ev.ownerEmail ? ev.ownerEmail.split("@")[0] : "user"} · {ev.title || typeLabel(ev.type)}
+                    <span style={{
+                      position:"absolute", top:"3px", right:"3px",
+                      width:"15px", height:"15px", borderRadius:"50%",
+                      background: ownerC, color:"#fff",
+                      fontSize:"8.5px", fontWeight:"700",
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                    }}>{ownerInits}</span>
+                    <div style={{ fontSize:"9.5px", color: ownerC, fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.4px", paddingRight:"16px", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {ev.ownerEmail ? ev.ownerEmail.split("@")[0] : "user"}
+                    </div>
+                    <div style={{ overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                      {ev.title || typeLabel(ev.type)}
+                    </div>
                   </div>
                 );
               })}
