@@ -424,6 +424,23 @@ function toApiStyle(style) {
   return out;
 }
 
+// Persisted across navigation and app restart (per browser). Cleared on
+// logout via lib/api.js.
+const GEN_PREFS_KEY = "_gen_prefs";
+
+function loadGenPrefs() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(GEN_PREFS_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveGenPrefs(prefs) {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(GEN_PREFS_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
+}
+
 export default function Home() {
   const [profiles, setProfiles]               = useState([]);
   const [templates, setTemplates]             = useState([]);
@@ -440,6 +457,35 @@ export default function Home() {
   const [scraping, setScraping]               = useState(false);
   const [scrapeMsg, setScrapeMsg]             = useState(null);
   const [includeCv, setIncludeCv]             = useState(false);
+  const [prefsLoaded, setPrefsLoaded]         = useState(false);
+
+  // Hydrate persisted preferences once on mount.
+  useEffect(() => {
+    const prefs = loadGenPrefs();
+    if (prefs) {
+      if (prefs.style && typeof prefs.style === "object") {
+        // Only adopt keys the current emptyStyle knows about, in case the
+        // dimension list changed between releases.
+        const base = emptyStyle();
+        for (const k of Object.keys(base)) {
+          if (typeof prefs.style[k] === "string") base[k] = prefs.style[k];
+        }
+        setStyle(base);
+      }
+      if (typeof prefs.randomize === "boolean") setRandomize(prefs.randomize);
+      if (typeof prefs.selectedTemplate === "string" && prefs.selectedTemplate) setSelectedTemplate(prefs.selectedTemplate);
+      if (typeof prefs.includeCv === "boolean") setIncludeCv(prefs.includeCv);
+      if (typeof prefs.styleOpen === "boolean") setStyleOpen(prefs.styleOpen);
+    }
+    setPrefsLoaded(true);
+  }, []);
+
+  // Persist whenever any of the saved fields change (after the initial
+  // hydration, so we never overwrite stored values with the defaults).
+  useEffect(() => {
+    if (!prefsLoaded) return;
+    saveGenPrefs({ style, randomize, selectedTemplate, includeCv, styleOpen });
+  }, [prefsLoaded, style, randomize, selectedTemplate, includeCv, styleOpen]);
 
   const scrapeJobUrl = async (urlToFetch) => {
     const target = (urlToFetch ?? jobUrl).trim();

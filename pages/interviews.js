@@ -5,8 +5,8 @@ import { apiGet, apiPost, apiPut, apiDelete } from "../lib/api";
 import {
   INTERVIEW_TYPES, INTERVIEW_STATUSES, INTERVIEW_RESULTS,
   typeLabel, statusMeta, resultMeta,
-  toLocalInput, fromLocalInput,
 } from "../lib/interviews";
+import { TIMEZONES, utcToInputInTz, inputInTzToISO, getPreferredTimezone } from "../lib/tz";
 
 const fieldBase = {
   width: "100%", padding: "9px 12px", fontSize: "13px",
@@ -27,11 +27,13 @@ function fmtDateTime(iso) {
 
 function emptyForm() {
   return {
+    title: "",
     type: "hr",
     round: 1,
     status: "scheduled",
     result: "pending",
     scheduledAt: "",
+    timezone: typeof window === "undefined" ? "Asia/Shanghai" : getPreferredTimezone(),
     durationMinutes: 45,
     location: "",
     interviewer: "",
@@ -62,12 +64,17 @@ export default function InterviewsPage() {
   const [form, setForm]         = useState(emptyForm());
   const [saving, setSaving]     = useState(false);
   const [history, setHistory]   = useState([]); // recent generations for the picker
+  const [userFilter, setUserFilter] = useState("me"); // "me" | "all" | <userId>
+  const [directory, setDirectory]   = useState([]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await apiGet("/api/interviews");
+      const params = new URLSearchParams();
+      if (userFilter && userFilter !== "me") params.set("userId", userFilter);
+      const qs = params.toString();
+      const res = await apiGet(`/api/interviews${qs ? "?" + qs : ""}`);
       if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
       const data = await res.json();
       setItems(data.items || []);
@@ -76,11 +83,12 @@ export default function InterviewsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userFilter]);
 
   useEffect(() => {
     refresh();
     apiGet("/api/generations?limit=100&offset=0").then(r => r.json()).then(d => setHistory(d.items || [])).catch(() => {});
+    apiGet("/api/users/directory").then(r => r.ok ? r.json() : []).then(setDirectory).catch(() => {});
   }, [refresh]);
 
   // Allow ?for=<generationId> to open the modal pre-linked to a resume.
@@ -105,13 +113,16 @@ export default function InterviewsPage() {
   };
 
   const openEdit = (it) => {
+    const tz = it.timezone || getPreferredTimezone();
     setEditingId(it.id);
     setForm({
+      title: it.title || "",
       type: it.type,
       round: it.round,
       status: it.status,
       result: it.result,
-      scheduledAt: toLocalInput(it.scheduledAt),
+      scheduledAt: utcToInputInTz(new Date(it.scheduledAt), tz),
+      timezone: tz,
       durationMinutes: it.durationMinutes || 45,
       location: it.location || "",
       interviewer: it.interviewer || "",
@@ -134,8 +145,9 @@ export default function InterviewsPage() {
         ...form,
         round: Number(form.round) || 1,
         durationMinutes: Number(form.durationMinutes) || 45,
-        scheduledAt: fromLocalInput(form.scheduledAt),
+        scheduledAt: inputInTzToISO(form.scheduledAt, form.timezone),
       };
+      if (!payload.scheduledAt) { setError("Date & time is invalid."); return; }
       if (!payload.generationId) delete payload.generationId;
       const res = editingId
         ? await apiPut(`/api/interviews/${editingId}`, payload)
@@ -192,14 +204,34 @@ export default function InterviewsPage() {
               <h1 style={{ fontSize:"16px", fontWeight:"700", color:"var(--text)" }}>Interviews</h1>
               <p style={{ fontSize:"11px", color:"var(--text-faint)", marginTop:"1px" }}>{upcoming.length} upcoming · {past.length} past</p>
             </div>
-            <button
-              onClick={() => openCreate()}
-              style={{
-                padding:"8px 16px", fontSize:"12.5px", fontWeight:"700",
-                background:"linear-gradient(135deg, #7c3aed 0%, #db2777 100%)",
-                border:"none", borderRadius:"9px", color:"#fff", cursor:"pointer",
-              }}
-            >+ Schedule interview</button>
+            <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+              <select
+                value={userFilter}
+                onChange={e => setUserFilter(e.target.value)}
+                title="Show interviews of"
+                style={{
+                  padding:"7px 12px", fontSize:"12.5px", fontWeight:"600",
+                  background:"var(--surface-2)", border:"1px solid var(--border)",
+                  borderRadius:"8px", color:"var(--accent)", cursor:"pointer",
+                  fontFamily:"inherit", outline:"none",
+                }}
+              >
+                <option value="me">Just me</option>
+                <option value="all">All users</option>
+                <option disabled>──────────</option>
+                {(directory || []).map((u) => (
+                  <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => openCreate()}
+                style={{
+                  padding:"8px 16px", fontSize:"12.5px", fontWeight:"700",
+                  background:"linear-gradient(135deg, #7c3aed 0%, #db2777 100%)",
+                  border:"none", borderRadius:"9px", color:"#fff", cursor:"pointer",
+                }}
+              >+ Schedule interview</button>
+            </div>
           </header>
 
           <div style={{ flex:1, overflowY:"auto", padding:"22px 28px" }}>
@@ -261,24 +293,33 @@ function Section({ title, items, loading, onEdit, onDelete }) {
                   <div style={{ fontSize:"11px", color:"var(--text-faint)", marginTop:"2px" }}>Round {it.round}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize:"13px", color:"var(--text)" }}>{it.jobTitle || "—"}</div>
-                  <div style={{ fontSize:"11px", color:"var(--text-muted)", marginTop:"2px" }}>{it.companyName || "—"}</div>
+                  <div style={{ fontSize:"13px", color:"var(--text)" }}>{it.title || it.jobTitle || "—"}</div>
+                  <div style={{ fontSize:"11px", color:"var(--text-muted)", marginTop:"2px" }}>
+                    {it.companyName || (it.title && it.jobTitle ? it.jobTitle : "—")}
+                    {it.ownerEmail && <span style={{ color:"var(--text-faint)", marginLeft:"6px" }}>· {it.ownerEmail}</span>}
+                  </div>
                 </div>
                 <div style={{ display:"flex", gap:"6px", flexWrap:"wrap" }}>
                   <Pill color={sm.color} label={sm.label} />
                   <Pill color={rm.color} label={rm.label} />
                 </div>
                 <div style={{ display:"flex", gap:"6px", whiteSpace:"nowrap" }}>
-                  <button onClick={() => onEdit(it)} style={{
-                    padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
-                    background:"var(--surface-3)", border:"1px solid var(--border)",
-                    borderRadius:"7px", color:"var(--accent-2)", cursor:"pointer",
-                  }}>Edit</button>
-                  <button onClick={() => onDelete(it)} style={{
-                    padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
-                    background:"rgba(239,68,68,0.10)", border:"1px solid rgba(239,68,68,0.30)",
-                    borderRadius:"7px", color:"var(--danger)", cursor:"pointer",
-                  }}>Delete</button>
+                  {!it.ownerId ? (
+                    <>
+                      <button onClick={() => onEdit(it)} style={{
+                        padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
+                        background:"var(--surface-3)", border:"1px solid var(--border)",
+                        borderRadius:"7px", color:"var(--accent-2)", cursor:"pointer",
+                      }}>Edit</button>
+                      <button onClick={() => onDelete(it)} style={{
+                        padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
+                        background:"rgba(239,68,68,0.10)", border:"1px solid rgba(239,68,68,0.30)",
+                        borderRadius:"7px", color:"var(--danger)", cursor:"pointer",
+                      }}>Delete</button>
+                    </>
+                  ) : (
+                    <span style={{ fontSize:"11px", color:"var(--text-faint)", padding:"5px 0" }}>read-only</span>
+                  )}
                 </div>
               </div>
             );
@@ -300,6 +341,10 @@ function Modal({ title, form, setForm, history, error, saving, onCancel, onSave,
         maxHeight:"90vh", overflowY:"auto",
       }}>
         <div style={{ fontSize:"15px", fontWeight:"700", color:"var(--text)", marginBottom:"16px" }}>{title}</div>
+
+        <Field label="Event title">
+          <input className="field" value={form.title} onChange={e => ch("title", e.target.value)} placeholder="e.g. Technical Interview with Acme" style={fieldBase} />
+        </Field>
 
         <Field label="Linked resume (optional)">
           <ResumeCombobox
@@ -334,6 +379,11 @@ function Modal({ title, form, setForm, history, error, saving, onCancel, onSave,
           </Field>
           <Field label="Date & time">
             <input className="field" type="datetime-local" value={form.scheduledAt} onChange={e => ch("scheduledAt", e.target.value)} style={fieldBase} />
+          </Field>
+          <Field label="Timezone">
+            <select className="field" value={form.timezone} onChange={e => ch("timezone", e.target.value)} style={fieldBase}>
+              {TIMEZONES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
           </Field>
           <Field label="Duration (min)">
             <input className="field" type="number" min="5" max="600" value={form.durationMinutes} onChange={e => ch("durationMinutes", e.target.value)} style={fieldBase} />

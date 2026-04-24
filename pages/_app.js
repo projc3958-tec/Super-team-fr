@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
-import { isAuthenticated } from "../lib/api";
+import { isAuthenticated, getUser } from "../lib/api";
 import { applyTheme, getTheme } from "../lib/theme";
+import { notificationsEnabled, start as startNotifications, stop as stopNotifications } from "../lib/notifications";
 
 const PUBLIC_PATHS = new Set(["/login"]);
+// Paths a user with role "generate_only" is allowed to visit. Anything else
+// bounces back to "/" (the Generate page).
+const GENERATE_ONLY_PATHS = new Set(["/", "/login"]);
 
 // Inline script run before React hydration so the user never sees a flash of
 // the wrong theme. Reads localStorage and writes data-theme on <html> early.
@@ -16,9 +20,26 @@ export default function App({ Component, pageProps }) {
 
   useEffect(() => { applyTheme(getTheme()); }, []);
 
+  // Start the background notification scheduler if the user opted in. The
+  // scheduler is auth-aware and short-circuits when not authenticated.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isAuthenticated() && notificationsEnabled()) startNotifications();
+    const onAuth = () => {
+      if (isAuthenticated() && notificationsEnabled()) startNotifications();
+      else stopNotifications();
+    };
+    window.addEventListener("auth:changed", onAuth);
+    return () => {
+      window.removeEventListener("auth:changed", onAuth);
+      stopNotifications();
+    };
+  }, []);
+
   useEffect(() => {
     const path = router.pathname;
     const authed = isAuthenticated();
+    const u = authed ? getUser() : null;
 
     if (!authed && !PUBLIC_PATHS.has(path)) {
       router.replace("/login");
@@ -28,12 +49,24 @@ export default function App({ Component, pageProps }) {
       router.replace("/");
       return;
     }
+    // generate_only: lock navigation to the Generate page.
+    if (authed && u?.role === "generate_only" && !GENERATE_ONLY_PATHS.has(path)) {
+      router.replace("/");
+      return;
+    }
     setReady(true);
 
     const onAuthChange = () => {
       const stillAuthed = isAuthenticated();
       const here = router.pathname;
-      if (!stillAuthed && !PUBLIC_PATHS.has(here)) router.replace("/login");
+      if (!stillAuthed && !PUBLIC_PATHS.has(here)) {
+        router.replace("/login");
+        return;
+      }
+      const updated = stillAuthed ? getUser() : null;
+      if (stillAuthed && updated?.role === "generate_only" && !GENERATE_ONLY_PATHS.has(here)) {
+        router.replace("/");
+      }
     };
     window.addEventListener("auth:changed", onAuthChange);
     window.addEventListener("storage", onAuthChange);

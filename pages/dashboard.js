@@ -125,8 +125,8 @@ export default function Dashboard() {
     try {
       const [statsRes, ivRes, funnelRes] = await Promise.all([
         apiGet(`/api/generations/stats?period=${period}&scope=${scope}`),
-        apiGet("/api/interviews/stats"),
-        apiGet("/api/interviews/funnel"),
+        apiGet(`/api/interviews/stats?scope=${scope}`),
+        apiGet(`/api/interviews/funnel?scope=${scope}`),
       ]);
       if (!statsRes.ok) throw new Error(await statsRes.text() || `HTTP ${statsRes.status}`);
       setStats(await statsRes.json());

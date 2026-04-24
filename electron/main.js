@@ -5,7 +5,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const os = require('os');
 
-const PORT = 3000;
+const PORT = 4002;
 const isDev = !app.isPackaged;
 let mainWindow = null;
 let nextServer = null;

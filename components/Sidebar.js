@@ -44,6 +44,7 @@ export default function Sidebar({ active }) {
 
   const onToggleTheme = () => setLocalTheme(toggleTheme());
   const admin = isAdmin();
+  const generateOnly = user?.role === "generate_only";
 
   return (
     <aside style={{
@@ -63,12 +64,17 @@ export default function Sidebar({ active }) {
       <div style={{ display:"flex", flexDirection:"column", gap:"3px", flex:1 }}>
         <div style={{ fontSize:"10px", fontWeight:"600", color:"var(--text-faint)", textTransform:"uppercase", letterSpacing:"0.8px", padding:"0 4px", marginBottom:"6px" }}>Workspace</div>
         <NavLink icon="⚡" label="Generate"   href="/"           active={active === "generate"} />
-        <NavLink icon="👤" label="Profiles"   href="/profiles"   active={active === "profiles"} />
-        <NavLink icon="🗂" label="History"    href="/history"    active={active === "history"} />
-        <NavLink icon="🎯" label="Interviews" href="/interviews" active={active === "interviews"} />
-        <NavLink icon="📅" label="Calendar"   href="/calendar"   active={active === "calendar"} />
-        <NavLink icon="📊" label="Dashboard"  href="/dashboard"  active={active === "dashboard"} />
-        <NavLink icon="⚙️" label="Settings"   href="/settings"   active={active === "settings"} />
+
+        {!generateOnly && (
+          <>
+            <NavLink icon="👤" label="Profiles"   href="/profiles"   active={active === "profiles"} />
+            <NavLink icon="🗂" label="History"    href="/history"    active={active === "history"} />
+            <NavLink icon="🎯" label="Interviews" href="/interviews" active={active === "interviews"} />
+            <NavLink icon="📅" label="Calendar"   href="/calendar"   active={active === "calendar"} />
+            <NavLink icon="📊" label="Dashboard"  href="/dashboard"  active={active === "dashboard"} />
+            <NavLink icon="⚙️" label="Settings"   href="/settings"   active={active === "settings"} />
+          </>
+        )}
 
         {admin && (
           <>

@@ -339,6 +339,7 @@ export default function Admin() {
                     <select className="field" value={newRole} onChange={e => setNewRole(e.target.value)} style={fieldBase}>
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
+                      <option value="generate_only">Generate-only</option>
                     </select>
                   </div>
                   <div>
@@ -420,6 +421,7 @@ export default function Admin() {
                           <select value={u.role} onChange={e => onUpdateRole(u, e.target.value)} style={{ ...fieldBase, padding:"5px 8px", fontSize:"12px", width:"auto" }}>
                             <option value="user">user</option>
                             <option value="admin">admin</option>
+                            <option value="generate_only">generate_only</option>
                           </select>
                         </td>
                         <td style={{ padding:"10px 14px" }}>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Sidebar from "../components/Sidebar";
-import { apiGet, apiFetch } from "../lib/api";
+import { apiGet, apiFetch, apiPut, apiDelete } from "../lib/api";
 import { typeLabel, statusMeta, resultMeta } from "../lib/interviews";
 
 const fieldBase = {
@@ -32,6 +32,10 @@ export default function History() {
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState("");
   const [busyId, setBusyId]         = useState(null);
+  const [editing, setEditing]       = useState(null);  // generation row being edited (or null)
+  const [editForm, setEditForm]     = useState({ jobTitle:"", companyName:"", jobUrl:"" });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError]   = useState("");
   const [q, setQ]                   = useState("");
   const [profileId, setProfileId]   = useState("");
   const [from, setFrom]             = useState("");
@@ -78,6 +82,44 @@ export default function History() {
     load(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset]);
+
+  const openEdit = (it) => {
+    setEditing(it);
+    setEditForm({ jobTitle: it.jobTitle || "", companyName: it.companyName || "", jobUrl: it.jobUrl || "" });
+    setEditError("");
+  };
+  const closeEdit = () => { setEditing(null); setEditError(""); };
+
+  const onSaveEdit = async () => {
+    if (!editing || editSaving) return;
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const res = await apiPut(`/api/generations/${editing.id}`, {
+        jobTitle: editForm.jobTitle,
+        companyName: editForm.companyName,
+        jobUrl: editForm.jobUrl,
+      });
+      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+      closeEdit();
+      load(false);
+    } catch (err) {
+      setEditError(err.message);
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
+  const onDeleteRow = async (it) => {
+    if (!confirm(`Delete this generation for "${it.jobTitle || "—"}" at "${it.companyName || "—"}"? The resume and cover letter PDFs will also be removed from storage.`)) return;
+    try {
+      const res = await apiDelete(`/api/generations/${it.id}`);
+      if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+      load(false);
+    } catch (err) {
+      alert("Delete failed: " + err.message);
+    }
+  };
 
   const downloadOne = async (id, kind, fallbackName) => {
     setBusyId(`${id}:${kind}`);
@@ -198,17 +240,17 @@ export default function History() {
                 <table style={{ width:"100%", borderCollapse:"collapse", fontSize:"13px" }}>
                   <thead>
                     <tr style={{ background:"rgba(139,92,246,0.07)", color:"var(--label)", textAlign:"left" }}>
-                      {["Date", "Profile", "Job Title", "Company", "Template", "Job Link", "Files", "Interviews"].map(h => (
-                        <th key={h} style={{ padding:"11px 14px", fontSize:"10.5px", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.6px", borderBottom:"1px solid rgba(139,92,246,0.1)" }}>{h}</th>
+                      {["Date", "Profile", "Job Title", "Company", "Template", "Job Link", "Files", "Interviews", ""].map((h, i) => (
+                        <th key={i} style={{ padding:"11px 14px", fontSize:"10.5px", fontWeight:"700", textTransform:"uppercase", letterSpacing:"0.6px", borderBottom:"1px solid rgba(139,92,246,0.1)" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {loading && items.length === 0 && (
-                      <tr><td colSpan={8} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>Loading…</td></tr>
+                      <tr><td colSpan={9} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>Loading…</td></tr>
                     )}
                     {!loading && items.length === 0 && (
-                      <tr><td colSpan={8} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>No generations yet. Generate a tailored resume to see it listed here.</td></tr>
+                      <tr><td colSpan={9} style={{ textAlign:"center", color:"#4b5563", padding:"40px 0", fontSize:"13px" }}>No generations yet. Generate a tailored resume to see it listed here.</td></tr>
                     )}
                     {items.map((it) => (
                       <tr key={it.id} style={{ borderBottom:"1px solid rgba(139,92,246,0.06)" }}>
@@ -247,6 +289,26 @@ export default function History() {
                         <td style={{ padding:"10px 14px", maxWidth:"240px" }}>
                           <InterviewBadges interviews={it.interviews} onClick={() => router.push("/interviews")} />
                         </td>
+                        <td style={{ padding:"10px 14px", whiteSpace:"nowrap", textAlign:"right" }}>
+                          <button
+                            onClick={() => openEdit(it)}
+                            title="Edit metadata"
+                            style={{
+                              padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
+                              background:"var(--surface-3)", border:"1px solid var(--border)",
+                              borderRadius:"7px", color:"var(--accent-2)", cursor:"pointer", marginRight:"6px",
+                            }}
+                          >Edit</button>
+                          <button
+                            onClick={() => onDeleteRow(it)}
+                            title="Delete generation + PDFs"
+                            style={{
+                              padding:"5px 10px", fontSize:"11.5px", fontWeight:"600",
+                              background:"rgba(239,68,68,0.10)", border:"1px solid rgba(239,68,68,0.30)",
+                              borderRadius:"7px", color:"var(--danger)", cursor:"pointer",
+                            }}
+                          >Delete</button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -260,6 +322,52 @@ export default function History() {
           </div>
         </div>
       </div>
+
+      {editing && (
+        <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.55)", display:"flex", alignItems:"center", justifyContent:"center", padding:"20px", zIndex:1000 }}>
+          <div style={{
+            width:"100%", maxWidth:"480px",
+            background:"var(--bg-deep)", border:"1px solid var(--border)",
+            borderRadius:"14px", padding:"22px 24px",
+          }}>
+            <div style={{ fontSize:"15px", fontWeight:"700", color:"var(--text)", marginBottom:"4px" }}>Edit generation</div>
+            <div style={{ fontSize:"11.5px", color:"var(--text-muted)", marginBottom:"14px" }}>
+              {editing.profileName || "—"} · {editing.template || "—"} · {fmtDate(editing.createdAt)}
+            </div>
+
+            <div style={{ marginBottom:"10px" }}>
+              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Job title</label>
+              <input className="field" value={editForm.jobTitle} onChange={e => setEditForm(f => ({ ...f, jobTitle: e.target.value }))} style={fieldBase} />
+            </div>
+            <div style={{ marginBottom:"10px" }}>
+              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Company</label>
+              <input className="field" value={editForm.companyName} onChange={e => setEditForm(f => ({ ...f, companyName: e.target.value }))} style={fieldBase} />
+            </div>
+            <div style={{ marginBottom:"14px" }}>
+              <label style={{ display:"block", fontSize:"10.5px", fontWeight:"700", color:"var(--label)", textTransform:"uppercase", letterSpacing:"0.6px", marginBottom:"5px" }}>Job link</label>
+              <input className="field" value={editForm.jobUrl} onChange={e => setEditForm(f => ({ ...f, jobUrl: e.target.value }))} placeholder="https://…" style={fieldBase} />
+            </div>
+
+            {editError && (
+              <div style={{ padding:"10px 12px", marginBottom:"12px", background:"rgba(239,68,68,0.08)", border:"1px solid rgba(239,68,68,0.2)", borderRadius:"9px", color:"var(--danger)", fontSize:"12.5px" }}>{editError}</div>
+            )}
+
+            <div style={{ display:"flex", gap:"8px", justifyContent:"flex-end" }}>
+              <button onClick={closeEdit} style={{
+                padding:"9px 16px", fontSize:"12.5px", fontWeight:"600",
+                background:"transparent", border:"1px solid var(--border)",
+                borderRadius:"9px", color:"var(--label)", cursor:"pointer",
+              }}>Cancel</button>
+              <button onClick={onSaveEdit} disabled={editSaving} style={{
+                padding:"9px 18px", fontSize:"12.5px", fontWeight:"700",
+                background: editSaving ? "rgba(109,40,217,0.45)" : "linear-gradient(135deg, #7c3aed 0%, #db2777 100%)",
+                border:"none", borderRadius:"9px", color:"#fff",
+                cursor: editSaving ? "not-allowed" : "pointer",
+              }}>{editSaving ? "Saving…" : "Save changes"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
